@@ -121,8 +121,9 @@ database in phpMyAdmin, edit `config.php`.)
   `personnel` role — they can record and verify, but not delete, export or
   change users. Give the supervisor the `leader` role — they approve or reject
   the *Documents out* requests (and cannot approve their own). The page shows
-  the full capability matrix; the last active admin cannot be demoted or
-  disabled.
+  the full capability matrix — tick or untick leader/personnel capabilities
+  and save, or restore the defaults. The admin role always keeps full control,
+  and the last active admin cannot be demoted or disabled.
 - **Scans:** *Documents out* lists 25 take-outs per page. An admin can free up
   space by removing scans older than 90 days — the document records stay.
 - **Excel:** export/import lives on *Data Log* (admin). If upload fails with

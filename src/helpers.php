@@ -49,15 +49,50 @@ function is_leader(): bool
  * What each role may do. Every page and POST goes through can(), so the
  * authority lives in one place instead of scattered role checks.
  *
+ * Admins can re-assign the leader/personnel capabilities on Users & roles;
+ * the admin row always keeps full control so the site cannot be locked out.
+ *
  * @return array<string, string[]>
  */
 function role_capabilities(): array
 {
-    return [
+    static $caps = null;
+    if ($caps !== null) {
+        return $caps;
+    }
+
+    $caps = [
         'admin'     => ['record', 'verify', 'approve', 'manage_data', 'manage_users'],
         'leader'    => ['record', 'verify', 'approve'],
         'personnel' => ['record', 'verify'],
     ];
+
+    $saved = json_decode(setting_get('role_caps'), true);
+    if (is_array($saved)) {
+        $known = array_keys(capability_labels());
+        foreach (['leader', 'personnel'] as $role) {
+            if (is_array($saved[$role] ?? null)) {
+                $caps[$role] = array_values(array_intersect($known, $saved[$role]));
+            }
+        }
+    }
+
+    return $caps;
+}
+
+/** Small key/value store used for the editable role permissions. */
+function setting_get(string $key, string $default = ''): string
+{
+    $st = db()->prepare('SELECT v FROM settings WHERE k = ?');
+    $st->execute([$key]);
+    $v = $st->fetchColumn();
+    return $v === false ? $default : (string) $v;
+}
+
+function setting_set(string $key, string $value): void
+{
+    db()->prepare('INSERT INTO settings (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)')
+        ->execute([$key, $value]);
 }
 
 /** @return array<string, string> capability key => plain-English label */
@@ -248,14 +283,14 @@ function page_header(string $title, string $active): void
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title><?= e($title) ?> · Factory Log</title>
+<title><?= e($title) ?> · Access Factory Management</title>
 <link rel="stylesheet" href="assets/app.css">
 </head>
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="brand"><span class="brand-mark">FL</span>
-      <div><strong>Factory Log</strong><small>Belongings In / Out</small></div>
+    <div class="brand"><span class="brand-mark">AFM</span>
+      <div><strong>Access Factory Management</strong><small>Belongings In / Out</small></div>
     </div>
     <nav class="menu">
       <?php foreach (nav_items() as [$href, $label, $icon]): ?>

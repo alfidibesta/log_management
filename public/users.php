@@ -38,6 +38,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    if ($action === 'permissions') {
+        $known = array_keys(capability_labels());
+        $caps  = ['leader' => [], 'personnel' => []];
+        foreach (['leader', 'personnel'] as $role) {
+            foreach ((array) ($_POST['caps'][$role] ?? []) as $cap) {
+                if (in_array($cap, $known, true)) {
+                    $caps[$role][] = $cap;
+                }
+            }
+        }
+        setting_set('role_caps', json_encode($caps));
+        flash('Role permissions saved — they apply on the next request.');
+        header('Location: users.php');
+        exit;
+    }
+
+    if ($action === 'permissions_reset') {
+        $pdo->prepare("DELETE FROM settings WHERE k = 'role_caps'")->execute();
+        flash('Role permissions restored to the defaults.');
+        header('Location: users.php');
+        exit;
+    }
+
     if ($action === 'role') {
         $id   = (int) ($_POST['id'] ?? 0);
         $role = in_array($_POST['role'] ?? '', ['admin', 'personnel', 'leader'], true) ? (string) $_POST['role'] : 'personnel';
@@ -126,27 +149,43 @@ page_header('Users & roles', 'users.php');
     <span class="filters-summary">What each role may do — enforced on every page and POST</span>
   </div>
   <div class="card-body flush">
-    <table class="roles">
-      <thead>
-        <tr><th>Capability</th><th>Admin</th><th>Leader</th><th>Personnel</th></tr>
-      </thead>
-      <tbody>
-      <?php foreach (capability_labels() as $cap => $label): ?>
-        <tr>
-          <td><?= e($label) ?></td>
-          <?php foreach (['admin', 'leader', 'personnel'] as $role): ?>
-            <td>
-              <?= in_array($cap, role_capabilities()[$role], true)
-                  ? '<span class="badge badge-in">✓</span>'
-                  : '<span class="muted">—</span>' ?>
-            </td>
-          <?php endforeach; ?>
-        </tr>
-      <?php endforeach; ?>
-      </tbody>
-    </table>
+    <form method="post">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="permissions">
+      <table class="roles">
+        <thead>
+          <tr><th>Capability</th><th>Admin</th><th>Leader</th><th>Personnel</th></tr>
+        </thead>
+        <tbody>
+        <?php foreach (capability_labels() as $cap => $label): ?>
+          <tr>
+            <td><?= e($label) ?></td>
+            <td><span class="badge badge-in">✓</span></td>
+            <?php foreach (['leader', 'personnel'] as $role): ?>
+              <td>
+                <input type="checkbox" name="caps[<?= $role ?>][]" value="<?= e($cap) ?>"
+                       aria-label="<?= e($label) ?> for <?= e(role_label($role)) ?>"
+                       <?= in_array($cap, role_capabilities()[$role], true) ? 'checked' : '' ?>>
+              </td>
+            <?php endforeach; ?>
+          </tr>
+        <?php endforeach; ?>
+        </tbody>
+      </table>
+      <div class="perm-actions">
+        <span class="filters-summary" style="flex:1">
+          Admin always keeps full control, so these two roles can be changed freely.
+          The last active admin still cannot be demoted or disabled.
+        </span>
+        <button class="btn btn-ghost btn-sm" type="submit" name="action" value="permissions_reset"
+                onclick="return confirm('Restore the default permissions for leader and personnel?')">
+          Restore defaults
+        </button>
+        <button class="btn btn-primary btn-sm" type="submit">Save permissions</button>
+      </div>
+    </form>
     <p class="muted" style="margin:0;padding:10px 14px;font-size:12px">
-      The last active admin cannot be demoted or disabled — add another admin first.
+      Changes apply on the next request for everyone, including signed-in users.
       New accounts are created below.
     </p>
   </div>

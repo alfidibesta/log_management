@@ -1,4 +1,4 @@
-# Factory Gate Log — Belongings In / Out
+# Access Factory Management — Belongings In / Out
 
 Native PHP + MySQL site for recording **personnel passing the main gate** with
 belongings, tools, documents, etc. Minimalist, compact, input-first.
@@ -107,10 +107,14 @@ rules live in one place and cannot drift from page to page.
   take-outs (never their own).
 - **personnel** — records gate entries and verifies the queue.
 
-Admins assign roles on **Users & roles**, which shows this matrix. Role
-changes and disabling are refused for the **last active admin**, so the site
-can always be managed. Every page behind `login.php` is guarded, all POSTs
-carry a CSRF token, passwords use `password_hash()`.
+Admins assign roles on **Users & roles**, which shows this matrix with the
+Leader and Personnel columns editable: tick a capability, press **Save
+permissions**, and it applies on the next request (stored as JSON in the
+`settings` table). **Restore defaults** returns to the matrix above. The Admin
+row is always full control, so the site cannot be locked out, and role changes
+or disabling are refused for the **last active admin**. Every page behind
+`login.php` is guarded, all POSTs carry a CSRF token, passwords use
+`password_hash()`.
 
 ## Auto refresh (two open views stay in sync)
 

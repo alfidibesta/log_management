@@ -38,6 +38,156 @@ period**.
 | Categories | admin | add / rename / hide the categories used for totals |
 | Users & roles | admin | create accounts, assign role (admin / leader / personnel), disable accounts — with the capability matrix and last-admin protection |
 
+## How to use it — by role
+
+Every account has exactly one role: **admin**, **leader** or **personnel**.
+The role decides which menu items appear and which actions the server accepts.
+Defaults are in the [capability matrix](#authority-roles); an admin can change
+the leader/personnel ticks, so a missing page may be deliberate. If a page
+answers **403 Forbidden**, your role lacks that capability — ask an admin.
+
+### Everyone — signing in and the shared pages
+
+1. **Sign in** at the login page. On a fresh installation the login page is a
+   *create admin account* form instead; the first account is always an admin.
+2. **Dashboard** is the starting screen: how many people are on site, how many
+   documents await approval, today's IN/OUT, the 7-day chart, totals by
+   category, and the **1 Record → 2 Verify → 3 Approve** guide.
+3. **Visitors** — check a visitor or contractor worker in *before* they walk
+   through, and check them out when they leave. Their row has **Belongings**
+   and **Documents** shortcuts that pre-fill the two forms and tag the record
+   `Visitor` / `Contractor`.
+4. **Summary** — end-of-day, weekly or monthly totals for belongings and
+   documents: by category, by person type, by day, top personnel. Pick the
+   period and press **Apply period**; the **Export belongings** and
+   **Export documents** buttons download that period as Excel.
+5. The working pages refresh themselves every ~3 seconds, so a second window
+   (for example *Record entry* open while you work in *Verify queue*) updates
+   without reloading.
+
+### Personnel / gate officer
+
+Your job is to keep the gate log true: record each crossing **when it
+happens**, and verify it when the person comes back.
+
+**When someone enters or leaves**
+
+1. Open **Record entry** (the input page).
+2. Fill the form: start typing the **name** (known people are suggested),
+   department, **direction** (`IN` = entering the factory, `OUT` = leaving),
+   category, belongings / item, quantity, gate and an optional note.
+3. The **time is set by the server** when you save — there is nothing to type
+   and no way to back-date an entry. Check the direction before saving.
+4. Press **Save**. The new crossing appears immediately in the *Open records*
+   panel on the same page, and in the Verify queue on the other screen.
+5. For a visitor or contractor, check them in on **Visitors** first, then use
+   the row's **Belongings** / **Documents** shortcut so the record is tagged
+   with their name and type.
+
+**When the person returns (or leaves again)**
+
+1. Open **Verify queue**. Each row shows the record plus the **opposite
+   crossing** side by side under *Check against (opposite crossing)*.
+2. Compare what went out with what is coming back. If everything matches,
+   press **Verify**. The record stores your name and the verification time.
+3. If something is off, choose a preset in the **remark** box next to the
+   button — `Belongings not returned`, `Partially returned`,
+   `Item missing / damaged` — or type your own, then press **Verify**. The
+   remark appears under the status in Data Log and in the Excel export.
+4. Pressed the wrong row? **Undo** puts the record back in the queue and clears
+   the verification and remark.
+
+**Also yours by default:** **Documents out** (record a document leaving, with
+its scan) and **Visitors**. You cannot approve document take-outs, delete
+records, export data, change categories or manage accounts — those return 403.
+
+**Shift handover:** the Verify queue only lists what still needs checking, so
+leave it truthful — verify what you checked, and use a remark rather than
+leaving an exception silently open.
+
+### Leader / supervisor
+
+Leaders do everything personnel do — record entry, verify the queue, visitors —
+and additionally **approve document take-outs**.
+
+1. The dashboard card **Documents awaiting approval** and the **Documents out**
+   menu (with its pending count) show the queue.
+2. Open **Documents out**, review the request and its scan, then press
+   **Approve** or **Reject** and add a short note if useful. The approver's name
+   and the time are stored and shown in the list.
+3. You cannot approve a request **you** created — another leader or an admin
+   must. **Undo** puts an approved or rejected request back into the queue.
+4. Keep the Verify queue moving during peak times; leaders verify exactly like
+   personnel.
+
+By default leaders cannot delete records, export/import Excel, change
+categories or manage accounts. An admin can grant those capabilities on
+*Users & roles* if a supervisor needs them.
+
+### Admin
+
+Admins keep the site usable and the data clean. Admin always holds every
+capability and that cannot be removed, so the site can never be locked out.
+
+**Accounts and permissions — Users & roles**
+
+1. **Create an account:** username, full name, password, role. Give gate
+   officers `personnel` and supervisors `leader`; use `admin` sparingly.
+2. **Change a role** or **disable** an account from its row. Disabled accounts
+   can no longer sign in; their past records keep their name. Changes apply to
+   already signed-in users on their next click.
+3. **Edit permissions:** tick or untick capabilities in the Leader and Personnel
+   columns, press **Save permissions**, and it applies on the next request.
+   **Restore defaults** brings back the standard matrix. The Admin column is
+   fixed at full control.
+4. The **last active admin** cannot be demoted or disabled. Create a second
+   admin before changing your own account.
+
+**Data and housekeeping**
+
+- **Data Log** — the full belongings history with filters (date, person,
+  direction, status, person type). Delete a wrong or duplicate record here,
+  **export** the current filter to Excel, or **import** a filled template
+  (imported rows are marked verified; bad rows are reported with their
+  spreadsheet line number).
+- **Document Log** — every document take-out with its approval status, filter
+  and Excel export.
+- **Documents out → Free up old scans** — removes scans older than 90 days in
+  batches while keeping the document records. Use it when *Scans stored* grows;
+  the page lists 25 take-outs per page so a large archive stays fast.
+- **Categories** — add, rename or hide the categories used for entry and
+  totals. Hiding keeps old records and reports intact.
+- **Visitors** — check people out, and delete a visit that was created by
+  mistake. Deleting a visit does not remove belongings or document records
+  already saved against that name.
+
+**Correcting mistakes**
+
+| Mistake | Fix |
+|---|---|
+| Entry saved with the wrong direction or item | Delete it on **Data Log** (admin), then record it again — records are not edited in place |
+| Entry verified by accident | **Undo** on *Verify queue*, then verify it correctly |
+| Wrong remark on a verification | **Undo**, then verify again with the right remark |
+| Document approved by mistake | **Undo** on *Documents out* and let the right leader decide |
+| Visitor still shown on site | **Check out** the visit on *Visitors* |
+
+### Quick reference
+
+| I need to… | Page | By default |
+|---|---|---|
+| Record someone entering / leaving | Record entry | everyone |
+| Check a record against the opposite crossing | Verify queue | everyone |
+| Note that belongings were not returned | Verify queue → remark | everyone |
+| Record a document going out | Documents out | everyone |
+| Approve / reject a document take-out | Documents out | leader, admin |
+| Check a visitor in or out | Visitors | everyone |
+| See totals for a day / week / month | Summary | everyone |
+| Delete or export records, import Excel | Data Log | admin |
+| Export document history | Document Log | admin |
+| Add or hide categories | Categories | admin |
+| Create accounts, change roles or permissions | Users & roles | admin |
+| Free up space used by old scans | Documents out | admin |
+
 ## Documents out — scan / photo + leader approval
 
 A document that leaves the site (drawing, PO, invoice, report binder) is

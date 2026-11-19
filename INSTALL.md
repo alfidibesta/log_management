@@ -55,7 +55,8 @@ INSTALL.md
    **create-admin-account** form — pick your own username and password.
    Five categories and a week of sample gate entries are seeded once so the
    dashboard isn't empty.
-6. Sign in and start recording on **Input**, checking on **Verify**.
+6. Sign in and start recording on **Record entry**, checking on **Verify queue**
+   (see the role guide in [README.md](README.md#how-to-use-it--by-role)).
 
 > Keep MySQL's root password empty only on a throwaway local machine. Set one
 > with phpMyAdmin → *Privileges* → change root password, and put it in
@@ -109,6 +110,9 @@ database in phpMyAdmin, edit `config.php`.)
 
 ## After installing
 
+A detailed walkthrough for each role — personnel, leader and admin — is in
+[README.md](README.md#how-to-use-it--by-role).
+
 - **First screen:** the login page → *create your first admin account*.
 - **Menu:** Dashboard · Record entry · Verify queue · Documents out ·
   Visitors · Summary for everyone; Data Log · Document Log · Categories ·
@@ -129,7 +133,8 @@ database in phpMyAdmin, edit `config.php`.)
 - **Excel:** export/import lives on *Data Log* (admin). If upload fails with
   a zip error, enable the extension: `extension=zip` in `php.ini`, restart
   Apache.
-- **Auto-refresh:** open *Input* in one window and *Verify* in another; an
+- **Auto-refresh:** open *Record entry* in one window and *Verify queue* in
+  another; an
   entry recorded in one appears in the other within ~3 seconds.
 
 ## Troubleshooting

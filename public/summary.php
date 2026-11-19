@@ -50,17 +50,47 @@ if (($_GET['do'] ?? '') === 'export') {
         $rows[] = [
             date('Y-m-d', strtotime($r['logged_at'])),
             date('H:i', strtotime($r['logged_at'])),
-            $r['person'], $r['dept'], $r['category_name'], $r['item'],
+            $r['person'], person_type_label($r['person_type']),
+            $r['dept'], $r['category_name'], $r['item'],
             (int) $r['qty'], strtoupper($r['type']), $r['note'], $r['gate'],
             $r['verified'] ? 'Verified' : 'Pending',
             $r['verify_remark'] ?? '',
         ];
     }
     xlsx_export(
-        ['Date', 'Time', 'Person', 'Department', 'Category', 'Item', 'Qty', 'Direction', 'Note', 'Gate', 'Status', 'Remark'],
+        ['Date', 'Time', 'Person', 'Type', 'Department', 'Category', 'Item', 'Qty', 'Direction', 'Note', 'Gate', 'Status', 'Remark'],
         $rows,
         "gate-pass-summary-{$period}-{$from}-{$to}.xlsx",
         'Summary'
+    );
+}
+
+/* ---------- export the period's documents ---------- */
+if (($_GET['do'] ?? '') === 'docexport') {
+    $st = $pdo->prepare("SELECT d.*, a.name AS approver FROM documents d
+                         LEFT JOIN users a ON a.id = d.approved_by
+                         WHERE d.taken_at >= ? AND d.taken_at <= ?
+                         ORDER BY d.taken_at, d.id");
+    $st->execute($args);
+    $rows = [];
+    foreach ($st->fetchAll() as $r) {
+        $rows[] = [
+            date('Y-m-d', strtotime($r['taken_at'])),
+            date('H:i', strtotime($r['taken_at'])),
+            $r['person'], person_type_label($r['person_type']), $r['dept'], $r['doc_no'],
+            $r['title'], $r['purpose'], (int) $r['copies'], ucfirst($r['status']),
+            $r['approver'] ?? '',
+            $r['approved_at'] ? date('Y-m-d H:i', strtotime((string) $r['approved_at'])) : '',
+            $r['approval_note'], $r['note'],
+            (int) $r['photo_bytes'] > 0 ? (int) round((int) $r['photo_bytes'] / 1024) : 0,
+        ];
+    }
+    xlsx_export(
+        ['Date', 'Time', 'Person', 'Type', 'Company', 'Document no', 'Document', 'Purpose',
+         'Copies', 'Status', 'Approved by', 'Approved at', 'Approval note', 'Note', 'Scan KB'],
+        $rows,
+        "documents-out-{$period}-{$from}-{$to}.xlsx",
+        'Documents out'
     );
 }
 
@@ -108,6 +138,51 @@ $p = $pdo->prepare("SELECT person, dept, COUNT(*) entries,
 $p->execute($args);
 $byPerson = $p->fetchAll();
 
+/* ---------- documents out, visitors, personnel types (period) ---------- */
+$dq = $pdo->prepare("SELECT COUNT(*) total,
+        COALESCE(SUM(status='pending'),0)  pending,
+        COALESCE(SUM(status='approved'),0) approved,
+        COALESCE(SUM(status='rejected'),0) rejected,
+        COALESCE(SUM(copies),0)            copies,
+        COALESCE(SUM(photo_bytes > 0),0)   scans,
+        COALESCE(SUM(photo_bytes),0)       photo_bytes
+        FROM documents WHERE taken_at >= ? AND taken_at <= ?");
+$dq->execute($args);
+$docTot = $dq->fetch();
+
+$dt = $pdo->prepare("SELECT person_type, COUNT(*) c, COALESCE(SUM(copies),0) copies,
+        COALESCE(SUM(status='approved'),0) approved, COALESCE(SUM(status='pending'),0) pending
+        FROM documents WHERE taken_at >= ? AND taken_at <= ? GROUP BY person_type");
+$dt->execute($args);
+$docByType = [];
+foreach ($dt->fetchAll() as $r) {
+    $docByType[$r['person_type']] = $r;
+}
+
+$lt = $pdo->prepare("SELECT person_type, COUNT(*) entries,
+        COALESCE(SUM(type='out'),0) out_e,
+        COALESCE(SUM(CASE WHEN type='out' THEN qty ELSE 0 END),0) out_qty
+        FROM logs WHERE logged_at >= ? AND logged_at <= ? GROUP BY person_type");
+$lt->execute($args);
+$logByType = [];
+foreach ($lt->fetchAll() as $r) {
+    $logByType[$r['person_type']] = $r;
+}
+
+$dp = $pdo->prepare("SELECT person, person_type, dept, COUNT(*) c, COALESCE(SUM(copies),0) copies
+        FROM documents WHERE taken_at >= ? AND taken_at <= ?
+        GROUP BY person, person_type, dept ORDER BY c DESC LIMIT 10");
+$dp->execute($args);
+$docByPerson = $dp->fetchAll();
+
+$vq = $pdo->prepare("SELECT COUNT(*) total,
+        COALESCE(SUM(time_out IS NULL),0)      onsite,
+        COALESCE(SUM(person_type='contractor'),0) contractors,
+        COALESCE(SUM(time_out IS NOT NULL),0)  checked_out
+        FROM visitors WHERE time_in >= ? AND time_in <= ?");
+$vq->execute($args);
+$visTot = $vq->fetch();
+
 $presets = [
     'day'    => ['label' => 'Today', 'period' => 'day', 'from' => date('Y-m-d'), 'to' => date('Y-m-d')],
     'week'   => ['label' => 'This week', 'period' => 'week', 'from' => date('Y-m-d', strtotime('monday this week')), 'to' => date('Y-m-d')],
@@ -133,7 +208,9 @@ page_header('Summary', 'summary.php');
     <button class="btn btn-ghost btn-sm" type="submit">Apply period</button>
     <span class="spacer"></span>
     <a class="btn btn-primary btn-sm"
-       href="?do=export&period=<?= e($period) ?>&from=<?= e($from) ?>&to=<?= e($to) ?>">⬇ Export period (.xlsx)</a>
+       href="?do=export&period=<?= e($period) ?>&from=<?= e($from) ?>&to=<?= e($to) ?>">⬇ Export belongings (.xlsx)</a>
+    <a class="btn btn-ghost btn-sm"
+       href="?do=docexport&period=<?= e($period) ?>&from=<?= e($from) ?>&to=<?= e($to) ?>">⬇ Export documents (.xlsx)</a>
   </form>
   <div class="card-body" style="padding-top:10px">
     <span class="filters-summary">
@@ -187,6 +264,77 @@ page_header('Summary', 'summary.php');
       </table>
     <?php endif; ?>
   </div>
+</div>
+
+<div class="grid grid-4">
+  <div class="stat"><div class="k">Documents out</div><div class="v"><?= number_format((int) $docTot['total']) ?></div><div class="s"><?= number_format((int) $docTot['copies']) ?> copies / pages</div></div>
+  <div class="stat tone-in"><div class="k">Approved</div><div class="v"><?= number_format((int) $docTot['approved']) ?></div><div class="s">cleared by a leader</div></div>
+  <div class="stat tone-out"><div class="k">Pending approval</div><div class="v"><?= number_format((int) $docTot['pending']) ?></div><div class="s"><a href="documents.php?status=pending">review</a></div></div>
+  <div class="stat"><div class="k">Scans stored</div><div class="v"><?= number_format((int) $docTot['scans']) ?></div><div class="s">avg <?= (int) $docTot['scans'] > 0 ? number_format(((int) $docTot['photo_bytes'] / (int) $docTot['scans']) / 1024, 0) : 0 ?> KB each</div></div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head">
+      <h2>Employees, visitors &amp; contractors</h2>
+      <span class="filters-summary">same period</span>
+    </div>
+    <div class="card-body flush">
+      <table>
+        <thead>
+          <tr>
+            <th>Person type</th><th class="num">Gate passes</th><th class="num">Items out</th>
+            <th class="num">Documents out</th><th class="num">Approved</th><th class="num">Pending</th>
+          </tr>
+        </thead>
+        <tbody>
+        <?php foreach (person_types() as $key => $label): $lg = $logByType[$key] ?? []; $dg = $docByType[$key] ?? []; ?>
+          <tr>
+            <td><?= person_type_badge($key) ?></td>
+            <td class="num"><?= (int) ($lg['entries'] ?? 0) ?></td>
+            <td class="num"><?= (int) ($lg['out_qty'] ?? 0) ?></td>
+            <td class="num"><strong><?= (int) ($dg['c'] ?? 0) ?></strong></td>
+            <td class="num"><?= (int) ($dg['approved'] ?? 0) ?></td>
+            <td class="num"><?= (int) ($dg['pending'] ?? 0) ?></td>
+          </tr>
+        <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>Top personnel — documents out</h2><span class="filters-summary">max 10</span></div>
+    <div class="card-body flush">
+      <?php if (!$docByPerson): ?>
+        <div class="empty">No documents taken out in this period.</div>
+      <?php else: ?>
+        <table>
+          <thead><tr><th>Personnel</th><th>Type</th><th class="num">Documents</th><th class="num">Copies</th></tr></thead>
+          <tbody>
+          <?php foreach ($docByPerson as $r): ?>
+            <tr>
+              <td>
+                <?= e($r['person']) ?>
+                <?php if ($r['dept'] !== ''): ?><br><span class="muted" style="font-size:12px"><?= e($r['dept']) ?></span><?php endif; ?>
+              </td>
+              <td><?= person_type_badge($r['person_type']) ?></td>
+              <td class="num"><?= (int) $r['c'] ?></td>
+              <td class="num"><?= (int) $r['copies'] ?></td>
+            </tr>
+          <?php endforeach; ?>
+          </tbody>
+        </table>
+      <?php endif; ?>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-4">
+  <div class="stat"><div class="k">Visitors &amp; contractors</div><div class="v"><?= number_format((int) $visTot['total']) ?></div><div class="s">checked in this period</div></div>
+  <div class="stat"><div class="k">Contractor workers</div><div class="v"><?= number_format((int) $visTot['contractors']) ?></div><div class="s">of those visits</div></div>
+  <div class="stat tone-out"><div class="k">Still on site</div><div class="v"><?= number_format((int) $visTot['onsite']) ?></div><div class="s">no check-out yet</div></div>
+  <div class="stat"><div class="k">Checked out</div><div class="v"><?= number_format((int) $visTot['checked_out']) ?></div><div class="s"><a href="visitors.php?status=all">visitor register</a></div></div>
 </div>
 
 <div class="grid grid-2">

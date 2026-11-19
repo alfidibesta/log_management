@@ -93,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="auth-foot">
       <?= $hasUsers
           ? 'Accounts are managed by the administrator.'
-          : 'Roles: <span class="badge badge-accent">admin</span> full control · <span class="badge badge-neutral">personnel</span> input &amp; verify' ?>
+          : 'Roles: <span class="badge badge-accent">admin</span> full control · <span class="badge badge-neutral">leader</span> approves documents · <span class="badge badge-neutral">personnel</span> input &amp; verify' ?>
     </div>
   </div>
 </div>

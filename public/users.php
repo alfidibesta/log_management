@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'create') {
         $username = trim((string) ($_POST['username'] ?? ''));
         $name     = trim((string) ($_POST['name'] ?? ''));
-        $role     = ($_POST['role'] ?? '') === 'admin' ? 'admin' : 'personnel';
+        $role     = in_array($_POST['role'] ?? '', ['admin', 'personnel', 'leader'], true) ? (string) $_POST['role'] : 'personnel';
         $pass     = (string) ($_POST['password'] ?? '');
 
         if ($username === '' || $name === '') {
@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($id === $selfId) {
             flash('You cannot change your own role.', 'err');
         } else {
-            $role = ($_POST['role'] ?? '') === 'admin' ? 'admin' : 'personnel';
+            $role = in_array($_POST['role'] ?? '', ['admin', 'personnel', 'leader'], true) ? (string) $_POST['role'] : 'personnel';
             $pdo->prepare("UPDATE users SET role = ? WHERE id = ?")->execute([$role, $id]);
             flash('Role updated.');
         }
@@ -68,7 +68,7 @@ page_header('Users', 'users.php');
 <div class="card">
   <div class="card-head">
     <h2>Add user</h2>
-    <span class="filters-summary">admin: everything · personnel: input &amp; verify the gate log</span>
+    <span class="filters-summary">admin: everything · leader: approves documents · personnel: input &amp; verify the gate log</span>
   </div>
   <div class="card-body">
     <form method="post" class="grid grid-form">
@@ -83,6 +83,7 @@ page_header('Users', 'users.php');
       <label class="field">Role
         <select name="role">
           <option value="personnel">Personnel</option>
+          <option value="leader">Leader — approves documents</option>
           <option value="admin">Admin</option>
         </select>
       </label>
@@ -129,6 +130,7 @@ page_header('Users', 'users.php');
                 <input type="hidden" name="id" value="<?= (int) $u['id'] ?>">
                 <select name="role" onchange="this.form.submit()" style="width:auto;padding:4px 6px;font-size:12px">
                   <option value="admin" <?= $u['role'] === 'admin' ? 'selected' : '' ?>>admin</option>
+                  <option value="leader" <?= $u['role'] === 'leader' ? 'selected' : '' ?>>leader</option>
                   <option value="personnel" <?= $u['role'] === 'personnel' ? 'selected' : '' ?>>personnel</option>
                 </select>
               </form>

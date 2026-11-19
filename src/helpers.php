@@ -23,6 +23,17 @@ function is_admin(): bool
     return (current_user()['role'] ?? '') === 'admin';
 }
 
+/** A leader approves document take-outs (an admin can too). */
+function is_leader(): bool
+{
+    return (current_user()['role'] ?? '') === 'leader';
+}
+
+function can_approve_documents(): bool
+{
+    return is_admin() || is_leader();
+}
+
 function require_login(): void
 {
     if (!current_user()) {
@@ -96,17 +107,47 @@ function has_any_users(): bool
     return (int) db()->query("SELECT COUNT(*) FROM users")->fetchColumn() > 0;
 }
 
+/** Who is crossing the gate: employees, visitors, contractor workers. */
+function person_types(): array
+{
+    return ['personnel' => 'Employee', 'visitor' => 'Visitor', 'contractor' => 'Contractor'];
+}
+
+function person_type_label(?string $t): string
+{
+    return person_types()[$t ?? ''] ?? 'Employee';
+}
+
+/** Badge HTML; visitors and contractors are highlighted, employees stay quiet. */
+function person_type_badge(?string $t): string
+{
+    $t   = in_array($t, ['visitor', 'contractor'], true) ? $t : 'personnel';
+    $cls = $t === 'visitor' ? 'badge-accent' : ($t === 'contractor' ? 'badge-out' : 'badge-neutral');
+    return '<span class="badge ' . $cls . '">' . e(person_type_label($t)) . '</span>';
+}
+
 /** Sidebar entries — the menu used to access the site. */
 function nav_items(): array
 {
+    $docs = 'Documents out';
+    if (can_approve_documents()) {
+        // leaders land here to approve — show how many requests are waiting
+        $waiting = (int) db()->query("SELECT COUNT(*) FROM documents WHERE status = 'pending'")->fetchColumn();
+        if ($waiting > 0) {
+            $docs .= ' (' . $waiting . ')';
+        }
+    }
     $items = [
         ['index.php', 'Dashboard', '▦'],
         ['input.php', 'Input (personnel)', '＋'],
         ['verify.php', 'Verify (personnel)', '✓'],
+        ['documents.php', $docs, '⇪'],
+        ['visitors.php', 'Visitors', '⚑'],
         ['summary.php', 'Summary', '≡'],
     ];
     if (is_admin()) {
         $items[] = ['log.php', 'Data Log', '☰'];
+        $items[] = ['doclog.php', 'Document Log', '⇩'];
         $items[] = ['categories.php', 'Categories', '▣'];
         $items[] = ['users.php', 'Users', '◆'];
     }

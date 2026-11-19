@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/render.php';
+require_once __DIR__ . '/../src/visitors.php';
 require_login();
 
 $pdo = db();
@@ -9,6 +10,8 @@ $pdo = db();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $person     = trim((string) ($_POST['person'] ?? ''));
+    $personType = in_array($_POST['person_type'] ?? '', ['personnel', 'visitor', 'contractor'], true)
+        ? (string) $_POST['person_type'] : 'personnel';
     $dept       = trim((string) ($_POST['dept'] ?? ''));
     $categoryId = (int) ($_POST['category_id'] ?? 0);
     $item       = trim((string) ($_POST['item'] ?? ''));
@@ -29,9 +32,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash(implode(' ', $err), 'err');
     } else {
         $st = $pdo->prepare("INSERT INTO logs
-                (person, dept, category_id, item, qty, type, gate, note, logged_at, user_id)
-                VALUES (?,?,?,?,?,?,?,?,?,?)");
-        $st->execute([$person, $dept, $categoryId, $item, $qty, $type, $gate, $note, $when,
+                (person, person_type, dept, category_id, item, qty, type, gate, note, logged_at, user_id)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)");
+        $st->execute([$person, $personType, $dept, $categoryId, $item, $qty, $type, $gate, $note, $when,
                       current_user()['id'] ?? null]);
         flash(ucfirst($type) . " recorded for {$person} — pending verification.");
         header('Location: input.php');
@@ -45,7 +48,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $categories = $pdo->query("SELECT id, name FROM categories WHERE active = 1 ORDER BY name")->fetchAll();
 $people     = $pdo->query("SELECT DISTINCT person FROM logs ORDER BY person LIMIT 60")->fetchAll(PDO::FETCH_COLUMN);
 $items      = $pdo->query("SELECT DISTINCT item FROM logs ORDER BY item LIMIT 60")->fetchAll(PDO::FETCH_COLUMN);
+$onsite     = onsite_visitors();
+$people     = array_values(array_unique(array_merge($people, array_column($onsite, 'name'))));
+$companies  = array_values(array_unique(array_filter(array_column($onsite, 'company'))));
 $person     = trim((string) ($_GET['person'] ?? ''));
+$preType    = in_array($_GET['type'] ?? '', ['personnel', 'visitor', 'contractor'], true) ? (string) $_GET['type'] : 'personnel';
 $open       = fetch_open_records($person);
 
 page_header('Input Gate Pass', 'input.php');
@@ -61,17 +68,27 @@ page_header('Input Gate Pass', 'input.php');
 
       <div class="grid grid-form">
         <label class="field grow">Personnel name *
-          <input type="text" name="person" list="people" required autofocus placeholder="Full name">
+          <input type="text" name="person" list="people" required autofocus placeholder="Full name"
+                 value="<?= e($person) ?>">
           <datalist id="people">
             <?php foreach ($people as $p): ?><option><?= e($p) ?></option><?php endforeach; ?>
           </datalist>
+        </label>
+
+        <label class="field">Person type
+          <select name="person_type">
+            <?php foreach (person_types() as $key => $label): ?>
+              <option value="<?= e($key) ?>" <?= $preType === $key ? 'selected' : '' ?>><?= e($label) ?></option>
+            <?php endforeach; ?>
+          </select>
         </label>
 
         <label class="field">Department / company
           <input type="text" name="dept" list="depts" placeholder="e.g. Maintenance">
           <datalist id="depts">
             <option>Production</option><option>Maintenance</option><option>Warehouse</option>
-            <option>Logistics</option><option>Quality Control</option><option>Visitor / Vendor</option>
+            <option>Logistics</option><option>Quality Control</option>
+            <?php foreach ($companies as $c): ?><option><?= e($c) ?></option><?php endforeach; ?>
           </datalist>
         </label>
 
@@ -126,7 +143,9 @@ page_header('Input Gate Pass', 'input.php');
 
       <p class="hint">Every crossing is recorded as <strong>pending</strong> and must be checked against
         the opposite record on the <a href="verify.php">Verify</a> page when the person exits or returns.
-        The panel below stays in sync with that queue.</p>
+        The panel below stays in sync with that queue.
+        <?php if ($onsite): ?><br>Visitors and contractor workers on site:
+          <?= (int) count($onsite) ?> — check them in / out on <a href="visitors.php">Visitors</a>.<?php endif; ?></p>
     </form>
   </div>
 </div>

@@ -51,19 +51,20 @@ function ensure_schema(PDO $pdo): void
         username      VARCHAR(64)  NOT NULL,
         name          VARCHAR(120) NOT NULL DEFAULT '',
         password_hash VARCHAR(255) NOT NULL,
-        role          ENUM('admin','personnel') NOT NULL DEFAULT 'personnel',
+        role          ENUM('admin','personnel','leader') NOT NULL DEFAULT 'personnel',
         active        TINYINT(1)   NOT NULL DEFAULT 1,
         created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
         UNIQUE KEY uq_users_username (username)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
-    // migrate older databases that still use the 'operator' role name
+    // Roles: admin (everything) · leader (approves document take-outs) ·
+    // personnel (record & verify). Older databases may still say 'operator'.
     $col = $pdo->query("SHOW COLUMNS FROM users LIKE 'role'")->fetch();
-    if ($col && strpos((string) $col['Type'], 'personnel') === false) {
-        $pdo->exec("ALTER TABLE users MODIFY role ENUM('admin','personnel','operator') NOT NULL DEFAULT 'personnel'");
+    if ($col && strpos((string) $col['Type'], "'leader'") === false) {
+        $pdo->exec("ALTER TABLE users MODIFY role ENUM('admin','personnel','operator','leader') NOT NULL DEFAULT 'personnel'");
         $pdo->exec("UPDATE users SET role = 'personnel' WHERE role = 'operator'");
-        $pdo->exec("ALTER TABLE users MODIFY role ENUM('admin','personnel') NOT NULL DEFAULT 'personnel'");
+        $pdo->exec("ALTER TABLE users MODIFY role ENUM('admin','personnel','leader') NOT NULL DEFAULT 'personnel'");
     }
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS categories (
@@ -80,6 +81,7 @@ function ensure_schema(PDO $pdo): void
     $pdo->exec("CREATE TABLE IF NOT EXISTS logs (
         id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
         person      VARCHAR(120) NOT NULL,
+        person_type ENUM('personnel','visitor','contractor') NOT NULL DEFAULT 'personnel',
         dept        VARCHAR(80)  NOT NULL DEFAULT '',
         category_id INT UNSIGNED NOT NULL,
         item        VARCHAR(160) NOT NULL,
@@ -97,6 +99,7 @@ function ensure_schema(PDO $pdo): void
         PRIMARY KEY (id),
         KEY idx_logs_logged_at (logged_at),
         KEY idx_logs_type (type),
+        KEY idx_logs_person_type (person_type),
         KEY idx_logs_category (category_id),
         KEY idx_logs_verified (verified),
         CONSTRAINT fk_logs_category FOREIGN KEY (category_id) REFERENCES categories (id),
@@ -108,6 +111,70 @@ function ensure_schema(PDO $pdo): void
     if (!$pdo->query("SHOW COLUMNS FROM logs LIKE 'verify_remark'")->fetch()) {
         $pdo->exec("ALTER TABLE logs ADD COLUMN verify_remark VARCHAR(255) NOT NULL DEFAULT '' AFTER verified_at");
     }
+
+    // One row = one document taken out of the site. The scan/photo is stored
+    // compressed (≈100–200 KB JPEG) in the row itself, so shared hosting needs
+    // no writable upload folder. Approval is done by a leader or an admin.
+    $pdo->exec("CREATE TABLE IF NOT EXISTS documents (
+        id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        person        VARCHAR(120) NOT NULL,
+        person_type   ENUM('personnel','visitor','contractor') NOT NULL DEFAULT 'personnel',
+        dept          VARCHAR(80)  NOT NULL DEFAULT '',
+        doc_no        VARCHAR(80)  NOT NULL DEFAULT '',
+        title         VARCHAR(160) NOT NULL,
+        purpose       VARCHAR(180) NOT NULL DEFAULT '',
+        copies        INT UNSIGNED NOT NULL DEFAULT 1,
+        taken_at      DATETIME     NOT NULL,
+        note          VARCHAR(255) NOT NULL DEFAULT '',
+        photo         MEDIUMBLOB   NULL,
+        photo_mime    VARCHAR(40)  NOT NULL DEFAULT '',
+        photo_bytes   INT UNSIGNED NOT NULL DEFAULT 0,
+        status        ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+        approved_by   INT UNSIGNED NULL,
+        approved_at   DATETIME     NULL,
+        approval_note VARCHAR(255) NOT NULL DEFAULT '',
+        user_id       INT UNSIGNED NULL,
+        created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_documents_status (status),
+        KEY idx_documents_taken (taken_at),
+        KEY idx_documents_person (person),
+        KEY idx_documents_person_type (person_type),
+        CONSTRAINT fk_documents_user     FOREIGN KEY (user_id)     REFERENCES users (id) ON DELETE SET NULL,
+        CONSTRAINT fk_documents_approver FOREIGN KEY (approved_by) REFERENCES users (id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    // migration: distinguish employees, visitors and contractor workers
+    foreach (['logs', 'documents'] as $table) {
+        if (!$pdo->query("SHOW COLUMNS FROM {$table} LIKE 'person_type'")->fetch()) {
+            $pdo->exec("ALTER TABLE {$table} ADD COLUMN person_type ENUM('personnel','visitor','contractor') NOT NULL DEFAULT 'personnel' AFTER person");
+        }
+    }
+
+    // Visitor / contractor register: reception checks them in here, the gate
+    // officer logs their belongings and documents against the same name, and
+    // reception checks them out on the way home.
+    $pdo->exec("CREATE TABLE IF NOT EXISTS visitors (
+        id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        name        VARCHAR(120) NOT NULL,
+        person_type ENUM('visitor','contractor') NOT NULL DEFAULT 'visitor',
+        company     VARCHAR(120) NOT NULL DEFAULT '',
+        id_no       VARCHAR(60)  NOT NULL DEFAULT '',
+        phone       VARCHAR(40)  NOT NULL DEFAULT '',
+        host        VARCHAR(120) NOT NULL DEFAULT '',
+        purpose     VARCHAR(180) NOT NULL DEFAULT '',
+        badge_no    VARCHAR(40)  NOT NULL DEFAULT '',
+        time_in     DATETIME     NOT NULL,
+        time_out    DATETIME     NULL,
+        note        VARCHAR(255) NOT NULL DEFAULT '',
+        user_id     INT UNSIGNED NULL,
+        created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_visitors_time_in (time_in),
+        KEY idx_visitors_time_out (time_out),
+        KEY idx_visitors_name (name),
+        CONSTRAINT fk_visitors_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS settings (
         k VARCHAR(48) NOT NULL,

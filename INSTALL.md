@@ -8,6 +8,7 @@ The site is plain PHP + MySQL — no framework, no composer, no build step.
 |---|---|
 | PHP **8.1 or newer** with `pdo_mysql` | runs the site |
 | PHP **zip** extension (`ZipArchive`) | reading/writing the Excel files |
+| PHP **GD** extension (`imagejpeg`) | compressing document scans / photos to ~200 KB |
 | MySQL 5.7+/8+ or MariaDB 10.3+ | the database |
 
 XAMPP, WAMP, Laragon (Windows) and MAMP (macOS) all ship PHP with both
@@ -109,10 +110,16 @@ database in phpMyAdmin, edit `config.php`.)
 ## After installing
 
 - **First screen:** the login page → *create your first admin account*.
-- **Menu:** Dashboard · Input · Verify · Summary for everyone; Data Log ·
-  Categories · Users for admins only (personnel get a 403 on those).
+- **Menu:** Dashboard · Input · Verify · Documents out · Visitors · Summary for
+  everyone; Data Log · Document Log · Categories · Users for admins only
+  (personnel and leaders get a 403 on those).
+- **Visitors:** check visitors and contractor workers in on *Visitors*, then
+  use the row's *Belongings* / *Documents* links — their records are tagged
+  Visitor/Contractor, so *Summary* reports them separately from employees.
 - **Roles:** create gate-officer accounts in *Users* with the `personnel`
   role — they can record and verify, but not delete, export or change users.
+  Give the supervisor the `leader` role — they approve or reject the
+  *Documents out* requests (and cannot approve their own).
 - **Excel:** export/import lives on *Data Log* (admin). If upload fails with
   a zip error, enable the extension: `extension=zip` in `php.ini`, restart
   Apache.
@@ -127,6 +134,7 @@ database in phpMyAdmin, edit `config.php`.)
 | `Access denied for user …` | wrong user/password in `config.php` |
 | Blank page / `Class PDO_mysql not found` | enable `extension=pdo_mysql` in `php.ini` |
 | Excel import says the zip extension is missing | enable `extension=zip` in `php.ini` |
+| Document photo cannot be compressed | enable `extension=gd` in `php.ini`, restart Apache |
 | `419` on save | session/CSRF token expired — reload the page and try again |
 | Tables missing | just load any page once; `src/db.php` creates the schema |
 

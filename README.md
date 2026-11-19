@@ -30,20 +30,72 @@ period**.
 | Dashboard | everyone | IN/OUT today, pending verifications, 7-day chart, totals by category |
 | **Input (personnel)** | everyone | **input-only page** — one compact form plus a live "open records" panel |
 | **Verify (personnel)** | everyone | the verification queue: grouped by person, counterpart record beside each row, optional remark, Verify / Undo |
-| Summary | everyone | **day / week / month / custom period** totals, by category, by day, top personnel |
-| Data Log | admin | full record list, filters, Excel export & import, delete |
+| **Documents out** | everyone | record a document leaving with a **fast scan / photo**, stored compressed; leaders approve or reject it |
+| **Visitors** | everyone | check **visitors / contractor workers** in and out: company, ID card, host, badge, on-site status |
+| Summary | everyone | **day / week / month / custom period** totals for belongings **and documents**, by category, by personnel type, by day, top personnel |
+| Data Log | admin | full belongings record list, filters (incl. person type), Excel export & import, delete |
+| Document Log | admin | full document take-out list, filters, Excel export |
 | Categories | admin | add / rename / hide the categories used for totals |
 | Users | admin | create accounts, set role (admin / personnel), disable accounts |
 
+## Documents out — scan / photo + leader approval
+
+A document that leaves the site (drawing, PO, invoice, report binder) is
+recorded on **Documents out**:
+
+1. **Add it with a fast scan or a photo.** *Fast scan (camera)* opens the
+   phone camera (`capture`), the file input picks an existing photo. The
+   browser downscales it to 1600 px and re-encodes it as JPEG until it fits
+   **≤ 200 KB** (`assets/document-scan.js`), then sends only that small copy.
+   Without JavaScript the plain upload still works — the server compresses it
+   with **GD** (`src/documents.php`), shrinking dimensions and quality until
+   the target size is reached, and refuses anything that stays huge.
+2. **Wait for approval.** Every new request is *pending*. A **leader** (or an
+   admin) approves or rejects it with an optional note; the approver and the
+   time are stored and shown in the list. A leader cannot approve their own
+   request — another leader or an admin must. *Undo* puts an approved or
+   rejected request back into the queue.
+3. **The scan stays small and private.** The compressed JPEG lives in the
+   `documents` row (`MEDIUMBLOB`, ~100–200 KB), so there is nothing to upload
+   into a web-reachable folder; it is served only to signed-in users through
+   `document_photo.php?id=…`. The list shows the saved size per scan and the
+   average KB per scan.
+
+## Visitors & contractor workers
+
+They do **not** get accounts — they are registered as visits on **Visitors**:
+
+1. Reception/gate checks them in: name, type (*Visitor* or *Contractor worker*),
+   company, ID card no., phone, host, purpose, badge no., time in. A second
+   check-in with the same name while they are still on site is refused.
+2. The row offers **Belongings** and **Documents** shortcuts that open the two
+   input forms with their name (and type) already filled in, so whatever they
+   carry in or take out is recorded against the visit and tagged
+   `Visitor` / `Contractor`.
+3. Reception clicks **Check out** when they leave; *Undo checkout* corrects a
+   mistake. The page shows who is on site now, contractors on site, checked in
+   today and checked out today. Admins can delete a visit.
+
+Every belonging crossing and every document take-out carries a **person type**
+(`employee` / `visitor` / `contractor`), so reports keep employees separate from
+outside people. **Summary** has a combined table — gate passes, items out,
+documents out, approved, pending — per person type, plus visitor counts for the
+period. **Data Log** and **Document Log** can filter by person type and export
+it as a `Type` column.
+
 ## Authority (roles)
 
-- **admin** — everything: Data Log, categories, users, deleting records.
-- **personnel** — the working pages: Input, Verify, Dashboard, Summary.
+- **admin** — everything: Data Log, categories, users, approving/deleting
+  documents.
+- **leader** — approves or rejects document take-outs; otherwise the same
+  working pages as personnel.
+- **personnel** — the working pages: Input, Verify, Documents out, Dashboard,
+  Summary.
 
-Both roles use Input/Verify (an admin is a superset); *Data Log, Categories and
-Users* return 403 for personnel, in the UI and on the server. Every page behind
-`login.php` is guarded, all POSTs carry a CSRF token, passwords use
-`password_hash()`.
+All roles use Input/Verify/Documents/Visitors (an admin is a superset); *Data
+Log, Document Log, Categories and Users* return 403 for personnel and leaders,
+in the UI and on the server. Every page behind `login.php` is guarded, all POSTs carry a CSRF
+token, passwords use `password_hash()`.
 
 ## Auto refresh (two open views stay in sync)
 

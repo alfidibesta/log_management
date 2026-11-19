@@ -110,16 +110,21 @@ database in phpMyAdmin, edit `config.php`.)
 ## After installing
 
 - **First screen:** the login page → *create your first admin account*.
-- **Menu:** Dashboard · Input · Verify · Documents out · Visitors · Summary for
-  everyone; Data Log · Document Log · Categories · Users for admins only
-  (personnel and leaders get a 403 on those).
+- **Menu:** Dashboard · Record entry · Verify queue · Documents out ·
+  Visitors · Summary for everyone; Data Log · Document Log · Categories ·
+  Users & roles for admins only (personnel and leaders get a 403 on those).
+  The working pages carry the same **1 Record → 2 Verify → 3 Approve** guide.
 - **Visitors:** check visitors and contractor workers in on *Visitors*, then
   use the row's *Belongings* / *Documents* links — their records are tagged
   Visitor/Contractor, so *Summary* reports them separately from employees.
-- **Roles:** create gate-officer accounts in *Users* with the `personnel`
-  role — they can record and verify, but not delete, export or change users.
-  Give the supervisor the `leader` role — they approve or reject the
-  *Documents out* requests (and cannot approve their own).
+- **Roles:** create gate-officer accounts in *Users & roles* with the
+  `personnel` role — they can record and verify, but not delete, export or
+  change users. Give the supervisor the `leader` role — they approve or reject
+  the *Documents out* requests (and cannot approve their own). The page shows
+  the full capability matrix; the last active admin cannot be demoted or
+  disabled.
+- **Scans:** *Documents out* lists 25 take-outs per page. An admin can free up
+  space by removing scans older than 90 days — the document records stay.
 - **Excel:** export/import lives on *Data Log* (admin). If upload fails with
   a zip error, enable the extension: `extension=zip` in `php.ini`, restart
   Apache.

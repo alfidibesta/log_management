@@ -8,7 +8,7 @@
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/documents.php';
 require_once __DIR__ . '/../src/excel.php';
-require_admin();
+require_can('manage_data');
 
 $pdo = db();
 

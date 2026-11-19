@@ -6,10 +6,17 @@ require_login();
 
 $pdo = db();
 
-$inToday   = (int) $pdo->query("SELECT COUNT(*) FROM logs WHERE type='in'  AND DATE(logged_at)=CURDATE()")->fetchColumn();
-$outToday  = (int) $pdo->query("SELECT COUNT(*) FROM logs WHERE type='out' AND DATE(logged_at)=CURDATE()")->fetchColumn();
-$pending   = (int) $pdo->query("SELECT COUNT(*) FROM logs WHERE verified=0")->fetchColumn();
-$totalRows = (int) $pdo->query("SELECT COUNT(*) FROM logs")->fetchColumn();
+// one pass over the log for all four headline numbers
+$counts = $pdo->query("SELECT
+        COALESCE(SUM(type = 'in'  AND DATE(logged_at) = CURDATE()), 0) AS in_today,
+        COALESCE(SUM(type = 'out' AND DATE(logged_at) = CURDATE()), 0) AS out_today,
+        COALESCE(SUM(verified = 0), 0) AS pending,
+        COUNT(*) AS total
+      FROM logs")->fetch();
+$inToday   = (int) $counts['in_today'];
+$outToday  = (int) $counts['out_today'];
+$pending   = (int) $counts['pending'];
+$totalRows = (int) $counts['total'];
 
 // totals by category (all time) — no stock, only counts
 $cats = $pdo->query("SELECT cat.name,
@@ -74,6 +81,16 @@ page_header('Dashboard', 'index.php');
     <div class="k">Total records</div>
     <div class="v"><?= number_format($totalRows) ?></div>
     <div class="s"><a href="summary.php">see summary</a></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2>How it works</h2>
+    <span class="filters-summary">Record → verify → approve, in that order</span>
+  </div>
+  <div class="card-body">
+    <?php flow_steps(); ?>
   </div>
 </div>
 

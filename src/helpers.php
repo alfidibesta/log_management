@@ -15,7 +15,24 @@ function e(?string $v): string
 
 function current_user(): ?array
 {
-    return $_SESSION['user'] ?? null;
+    static $user = null;
+    if ($user !== null) {
+        return $user;
+    }
+    $id = (int) ($_SESSION['user']['id'] ?? 0);
+    if ($id <= 0) {
+        return null;
+    }
+    // Re-read the account so a role change or a disabled login takes effect
+    // on the next request instead of at the next sign-in.
+    $st = db()->prepare('SELECT id, username, name, role FROM users WHERE id = ? AND active = 1');
+    $st->execute([$id]);
+    $row = $st->fetch();
+    if (!$row) {
+        unset($_SESSION['user']);
+        return null;
+    }
+    return $user = $row;
 }
 
 function is_admin(): bool
@@ -23,15 +40,64 @@ function is_admin(): bool
     return (current_user()['role'] ?? '') === 'admin';
 }
 
-/** A leader approves document take-outs (an admin can too). */
 function is_leader(): bool
 {
     return (current_user()['role'] ?? '') === 'leader';
 }
 
+/**
+ * What each role may do. Every page and POST goes through can(), so the
+ * authority lives in one place instead of scattered role checks.
+ *
+ * @return array<string, string[]>
+ */
+function role_capabilities(): array
+{
+    return [
+        'admin'     => ['record', 'verify', 'approve', 'manage_data', 'manage_users'],
+        'leader'    => ['record', 'verify', 'approve'],
+        'personnel' => ['record', 'verify'],
+    ];
+}
+
+/** @return array<string, string> capability key => plain-English label */
+function capability_labels(): array
+{
+    return [
+        'record'       => 'Record gate entries',
+        'verify'       => 'Verify the queue',
+        'approve'      => 'Approve document take-outs',
+        'manage_data'  => 'Data logs, categories & export',
+        'manage_users' => 'Users & role assignment',
+    ];
+}
+
+function role_label(string $role): string
+{
+    return ['admin' => 'Admin', 'leader' => 'Leader', 'personnel' => 'Personnel'][$role] ?? ucfirst($role);
+}
+
+function can(string $capability): bool
+{
+    $role = (string) (current_user()['role'] ?? '');
+    return in_array($capability, role_capabilities()[$role] ?? [], true);
+}
+
 function can_approve_documents(): bool
 {
-    return is_admin() || is_leader();
+    return can('approve');
+}
+
+/** Require a signed-in user whose role includes this capability. */
+function require_can(string $capability): void
+{
+    require_login();
+    if (!can($capability)) {
+        http_response_code(403);
+        echo '<p style="padding:32px;font:14px system-ui">403 — your role does not include “'
+            . e(capability_labels()[$capability] ?? $capability) . '”. <a href="index.php">Back</a></p>';
+        exit;
+    }
 }
 
 function require_login(): void
@@ -129,29 +195,48 @@ function person_type_badge(?string $t): string
 /** Sidebar entries — the menu used to access the site. */
 function nav_items(): array
 {
-    $docs = 'Documents out';
-    if (can_approve_documents()) {
-        // leaders land here to approve — show how many requests are waiting
-        $waiting = (int) db()->query("SELECT COUNT(*) FROM documents WHERE status = 'pending'")->fetchColumn();
-        if ($waiting > 0) {
-            $docs .= ' (' . $waiting . ')';
-        }
-    }
+    // one query feeds both counters shown in the menu
+    $c = db()->query("SELECT (SELECT COUNT(*) FROM documents WHERE status = 'pending') AS docs,
+                             (SELECT COUNT(*) FROM logs WHERE verified = 0) AS logs")->fetch();
+    $waitingDocs   = (int) ($c['docs'] ?? 0);
+    $waitingVerify = (int) ($c['logs'] ?? 0);
+
     $items = [
         ['index.php', 'Dashboard', '▦'],
-        ['input.php', 'Input (personnel)', '＋'],
-        ['verify.php', 'Verify (personnel)', '✓'],
-        ['documents.php', $docs, '⇪'],
+        ['input.php', 'Record entry', '＋'],
+        ['verify.php', $waitingVerify > 0 ? 'Verify queue (' . $waitingVerify . ')' : 'Verify queue', '✓'],
+        ['documents.php', can_approve_documents() && $waitingDocs > 0
+            ? 'Documents out (' . $waitingDocs . ')' : 'Documents out', '⇪'],
         ['visitors.php', 'Visitors', '⚑'],
         ['summary.php', 'Summary', '≡'],
     ];
-    if (is_admin()) {
+    if (can('manage_data')) {
         $items[] = ['log.php', 'Data Log', '☰'];
         $items[] = ['doclog.php', 'Document Log', '⇩'];
         $items[] = ['categories.php', 'Categories', '▣'];
-        $items[] = ['users.php', 'Users', '◆'];
+    }
+    if (can('manage_users')) {
+        $items[] = ['users.php', 'Users & roles', '◆'];
     }
     return $items;
+}
+
+/** The three-step guide: record → verify → approve. */
+function flow_steps(string $current = ''): void
+{
+    $steps = [
+        ['record', 'input.php', '1', 'Record', 'Log the crossing'],
+        ['verify', 'verify.php', '2', 'Verify', 'Check IN ↔ OUT'],
+        ['approve', 'documents.php?status=pending', '3', 'Approve', 'Clear documents out'],
+    ];
+    echo '<ol class="flow">';
+    foreach ($steps as [$key, $href, $number, $label, $hint]) {
+        echo '<li class="flow-step' . ($key === $current ? ' is-active' : '') . '">'
+           . '<a href="' . e($href) . '"><span class="flow-n">' . $number . '</span>'
+           . '<span class="flow-tx"><strong>' . e($label) . '</strong>'
+           . '<small>' . e($hint) . '</small></span></a></li>';
+    }
+    echo '</ol>';
 }
 
 function page_header(string $title, string $active): void

@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/render.php';
 require_once __DIR__ . '/../src/visitors.php';
-require_login();
+require_can('record');
 
 $pdo = db();
 
@@ -19,9 +19,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $type       = ($_POST['type'] ?? '') === 'in' ? 'in' : 'out';
     $gate       = trim((string) ($_POST['gate'] ?? '')) ?: 'Main Gate';
     $note       = trim((string) ($_POST['note'] ?? ''));
-    $when       = (string) ($_POST['logged_at'] ?? '');
-    $ts         = $when !== '' ? strtotime($when) : time();
-    $when       = $ts ? date('Y-m-d H:i:s', $ts) : date('Y-m-d H:i:s');
+    /* Stamped by the server — the form has no editable time field. */
+    $when       = date('Y-m-d H:i:s');
 
     $err = [];
     if ($person === '')  { $err[] = 'Personnel name is required.'; }
@@ -55,8 +54,11 @@ $person     = trim((string) ($_GET['person'] ?? ''));
 $preType    = in_array($_GET['type'] ?? '', ['personnel', 'visitor', 'contractor'], true) ? (string) $_GET['type'] : 'personnel';
 $open       = fetch_open_records($person);
 
-page_header('Input Gate Pass', 'input.php');
+page_header('Record entry', 'input.php');
 ?>
+<div class="card">
+  <div class="card-body"><?php flow_steps('record'); ?></div>
+</div>
 <div class="card">
   <div class="card-head">
     <h2>Record personnel passing the main gate</h2>
@@ -128,7 +130,7 @@ page_header('Input Gate Pass', 'input.php');
         </label>
 
         <label class="field">Date &amp; time
-          <input type="datetime-local" name="logged_at" value="<?= date('Y-m-d\TH:i') ?>">
+          <div class="field-auto"><?= date('d M Y, H:i') ?> <span class="muted">· automatic</span></div>
         </label>
       </div>
 

@@ -9,7 +9,7 @@
  */
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/visitors.php';
-require_login();
+require_can('record');
 
 $pdo = db();
 
@@ -29,9 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $purpose = mb_substr(trim((string) ($_POST['purpose'] ?? '')), 0, 180);
         $badge   = mb_substr(trim((string) ($_POST['badge_no'] ?? '')), 0, 40);
         $note    = mb_substr(trim((string) ($_POST['note'] ?? '')), 0, 255);
-        $when    = (string) ($_POST['time_in'] ?? '');
-        $ts      = $when !== '' ? strtotime($when) : time();
-        $when    = date('Y-m-d H:i:s', $ts ?: time());
+        /* Stamped by the server — the form has no editable time field. */
+        $when    = date('Y-m-d H:i:s');
 
         $err = [];
         if ($name === '')    { $err[] = 'Visitor name is required.'; }
@@ -95,10 +94,17 @@ $ret    = (string) ($_SERVER['QUERY_STRING'] ?? '');
 
 $_SESSION['visitor_return'] = $ret;
 
-$onsite      = (int) $pdo->query("SELECT COUNT(*) FROM visitors WHERE time_out IS NULL")->fetchColumn();
-$contractors = (int) $pdo->query("SELECT COUNT(*) FROM visitors WHERE time_out IS NULL AND person_type = 'contractor'")->fetchColumn();
-$inToday     = (int) $pdo->query("SELECT COUNT(*) FROM visitors WHERE DATE(time_in) = CURDATE()")->fetchColumn();
-$outToday    = (int) $pdo->query("SELECT COUNT(*) FROM visitors WHERE time_out IS NOT NULL AND DATE(time_out) = CURDATE()")->fetchColumn();
+// one pass over the register for all four headline numbers
+$c = $pdo->query("SELECT
+        COALESCE(SUM(time_out IS NULL), 0) AS onsite,
+        COALESCE(SUM(time_out IS NULL AND person_type = 'contractor'), 0) AS contractors,
+        COALESCE(SUM(DATE(time_in) = CURDATE()), 0) AS in_today,
+        COALESCE(SUM(time_out IS NOT NULL AND DATE(time_out) = CURDATE()), 0) AS out_today
+      FROM visitors")->fetch();
+$onsite      = (int) $c['onsite'];
+$contractors = (int) $c['contractors'];
+$inToday     = (int) $c['in_today'];
+$outToday    = (int) $c['out_today'];
 
 page_header('Visitors & Contractors', 'visitors.php');
 ?>
@@ -165,7 +171,7 @@ page_header('Visitors & Contractors', 'visitors.php');
           <input type="text" name="host" maxlength="120" placeholder="e.g. Andi Wijaya (Maintenance)">
         </label>
         <label class="field">Time in
-          <input type="datetime-local" name="time_in" value="<?= date('Y-m-d\TH:i') ?>">
+          <div class="field-auto"><?= date('d M Y, H:i') ?> <span class="muted">· automatic</span></div>
         </label>
       </div>
 

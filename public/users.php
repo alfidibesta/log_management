@@ -1,8 +1,14 @@
 <?php
 require_once __DIR__ . '/../src/helpers.php';
-require_admin();
+require_can('manage_users');
 
 $pdo = db();
+
+/** Keep at least one active admin so the site can always be managed. */
+function active_admin_count(PDO $pdo): int
+{
+    return (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'admin' AND active = 1")->fetchColumn();
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
@@ -33,13 +39,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($action === 'role') {
-        $id = (int) ($_POST['id'] ?? 0);
+        $id   = (int) ($_POST['id'] ?? 0);
+        $role = in_array($_POST['role'] ?? '', ['admin', 'personnel', 'leader'], true) ? (string) $_POST['role'] : 'personnel';
+        $st   = $pdo->prepare("SELECT role, active FROM users WHERE id = ?");
+        $st->execute([$id]);
+        $target = $st->fetch();
+
         if ($id === $selfId) {
             flash('You cannot change your own role.', 'err');
+        } elseif (!$target) {
+            flash('That account no longer exists.', 'err');
+        } elseif ($target['role'] === 'admin' && (int) $target['active'] === 1
+                  && $role !== 'admin' && active_admin_count($pdo) <= 1) {
+            flash('This is the last active admin — make another account an admin first.', 'err');
         } else {
-            $role = in_array($_POST['role'] ?? '', ['admin', 'personnel', 'leader'], true) ? (string) $_POST['role'] : 'personnel';
             $pdo->prepare("UPDATE users SET role = ? WHERE id = ?")->execute([$role, $id]);
-            flash('Role updated.');
+            flash('Role updated to ' . role_label($role) . '.');
         }
         header('Location: users.php');
         exit;
@@ -47,8 +62,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'toggle') {
         $id = (int) ($_POST['id'] ?? 0);
+        $st = $pdo->prepare("SELECT role, active FROM users WHERE id = ?");
+        $st->execute([$id]);
+        $target = $st->fetch();
+
         if ($id === $selfId) {
             flash('You cannot disable your own account.', 'err');
+        } elseif (!$target) {
+            flash('That account no longer exists.', 'err');
+        } elseif ($target['role'] === 'admin' && (int) $target['active'] === 1 && active_admin_count($pdo) <= 1) {
+            flash('This is the last active admin — make another account an admin first.', 'err');
         } else {
             $pdo->prepare("UPDATE users SET active = 1 - active WHERE id = ?")->execute([$id]);
             flash('Account status changed.');
@@ -62,7 +85,7 @@ $users = $pdo->query("SELECT u.*,
         (SELECT COUNT(*) FROM logs l WHERE l.user_id = u.id) AS entries
       FROM users u ORDER BY u.role DESC, u.username")->fetchAll();
 
-page_header('Users', 'users.php');
+page_header('Users & roles', 'users.php');
 ?>
 
 <div class="card">
@@ -94,6 +117,38 @@ page_header('Users', 'users.php');
         <button class="btn btn-primary" type="submit">Create user</button>
       </div>
     </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2>Roles &amp; access</h2>
+    <span class="filters-summary">What each role may do — enforced on every page and POST</span>
+  </div>
+  <div class="card-body flush">
+    <table class="roles">
+      <thead>
+        <tr><th>Capability</th><th>Admin</th><th>Leader</th><th>Personnel</th></tr>
+      </thead>
+      <tbody>
+      <?php foreach (capability_labels() as $cap => $label): ?>
+        <tr>
+          <td><?= e($label) ?></td>
+          <?php foreach (['admin', 'leader', 'personnel'] as $role): ?>
+            <td>
+              <?= in_array($cap, role_capabilities()[$role], true)
+                  ? '<span class="badge badge-in">✓</span>'
+                  : '<span class="muted">—</span>' ?>
+            </td>
+          <?php endforeach; ?>
+        </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table>
+    <p class="muted" style="margin:0;padding:10px 14px;font-size:12px">
+      The last active admin cannot be demoted or disabled — add another admin first.
+      New accounts are created below.
+    </p>
   </div>
 </div>
 

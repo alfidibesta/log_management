@@ -7,7 +7,7 @@
  */
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/render.php';
-require_login();
+require_can('verify');
 
 $pdo = db();
 
@@ -54,8 +54,11 @@ $pending = count($rows);
 
 $_SESSION['verify_return'] = (string) ($_SERVER['QUERY_STRING'] ?? '');
 
-page_header('Verify Personnel Belongings', 'verify.php');
+page_header('Verify queue', 'verify.php');
 ?>
+<div class="card">
+  <div class="card-body"><?php flow_steps('verify'); ?></div>
+</div>
 <div class="grid grid-4">
   <div class="stat"><div class="k">To verify</div><div class="v"><?= number_format($pending) ?></div><div class="s">records awaiting check</div></div>
   <div class="stat"><div class="k">Personnel involved</div><div class="v"><?= number_format(count($byPerson)) ?></div><div class="s">with open records</div></div>

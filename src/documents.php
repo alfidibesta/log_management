@@ -17,6 +17,8 @@ const DOC_PHOTO_TARGET_BYTES = 200 * 1024;
 const DOC_PHOTO_MAX_DIM = 1600;
 /** Hard cap for the un-compressed fallback upload path. */
 const DOC_PHOTO_MAX_INPUT = 8 * 1024 * 1024;
+/** Scans older than this can be removed by an admin; the record stays. */
+const DOC_PHOTO_KEEP_DAYS = 90;
 /** JPEG quality ladder — the first step that fits the target wins. */
 const DOC_PHOTO_QUALITIES = [78, 66, 55, 45, 38];
 
@@ -170,17 +172,10 @@ function doc_shrink_image(string $bytes): array
 
 /* ---------------------------------------------------------------- queries */
 
-/** @return array{0:string,1:array} sql + args for the document list */
-function doc_filter_sql(string $status, string $q, string $from = '', string $to = '', string $personType = ''): array
+/** @return array{0:string,1:array} WHERE clause + args shared by list, count and export */
+function doc_where(string $status, string $q, string $from = '', string $to = '', string $personType = ''): array
 {
-    $sql = "SELECT d.id, d.person, d.person_type, d.dept, d.doc_no, d.title, d.purpose, d.copies,
-                   d.taken_at, d.note, d.photo_bytes, d.photo_mime, d.status,
-                   d.approval_note, d.approved_at, d.user_id,
-                   u.name AS requester, a.name AS approver
-            FROM documents d
-            LEFT JOIN users u ON u.id = d.user_id
-            LEFT JOIN users a ON a.id = d.approved_by
-            WHERE 1";
+    $sql  = ' WHERE 1';
     $args = [];
     if (in_array($status, ['pending', 'approved', 'rejected'], true)) {
         $sql   .= ' AND d.status = ?';
@@ -206,13 +201,48 @@ function doc_filter_sql(string $status, string $q, string $from = '', string $to
     return [$sql, $args];
 }
 
-function fetch_documents(string $status, string $q, string $from = '', string $to = '', string $personType = '', int $limit = 200): array
+/** @return array{0:string,1:array} sql + args for the document list (and Excel export) */
+function doc_filter_sql(string $status, string $q, string $from = '', string $to = '', string $personType = ''): array
+{
+    [$where, $args] = doc_where($status, $q, $from, $to, $personType);
+    $sql = "SELECT d.id, d.person, d.person_type, d.dept, d.doc_no, d.title, d.purpose, d.copies,
+                   d.taken_at, d.note, d.photo_bytes, d.photo_mime, d.status,
+                   d.approval_note, d.approved_at, d.user_id,
+                   u.name AS requester, a.name AS approver
+            FROM documents d
+            LEFT JOIN users u ON u.id = d.user_id
+            LEFT JOIN users a ON a.id = d.approved_by" . $where;
+    return [$sql, $args];
+}
+
+/** How many documents match the filters (used for paging). */
+function doc_count(string $status, string $q, string $from = '', string $to = '', string $personType = ''): int
+{
+    [$where, $args] = doc_where($status, $q, $from, $to, $personType);
+    $st = db()->prepare('SELECT COUNT(*) FROM documents d' . $where);
+    $st->execute($args);
+    return (int) $st->fetchColumn();
+}
+
+function fetch_documents(string $status, string $q, string $from = '', string $to = '', string $personType = '', int $limit = 25, int $offset = 0): array
 {
     [$sql, $args] = doc_filter_sql($status, $q, $from, $to, $personType);
-    $sql .= " ORDER BY d.status = 'pending' DESC, d.taken_at DESC, d.id DESC LIMIT " . max(1, min(500, $limit));
+    $sql .= " ORDER BY d.status = 'pending' DESC, d.taken_at DESC, d.id DESC LIMIT "
+          . max(1, min(500, $limit)) . ' OFFSET ' . max(0, $offset);
     $st = db()->prepare($sql);
     $st->execute($args);
     return $st->fetchAll();
+}
+
+/** Link to another page of the document list, keeping the filters. */
+function doc_page_url(int $page): string
+{
+    $qs = array_filter([
+        'status' => (string) ($_GET['status'] ?? ''),
+        'q'      => (string) ($_GET['q'] ?? ''),
+        'page'   => $page > 1 ? (string) $page : '',
+    ], static fn (string $v): bool => $v !== '');
+    return 'documents.php' . ($qs ? '?' . http_build_query($qs) : '');
 }
 
 /** Where to go back to after an action, keeping the list filters. */

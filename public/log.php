@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/render.php';
 require_once __DIR__ . '/../src/excel.php';
-require_admin(); // the Data Log (incl. Excel import/export) is admin territory
+require_can('manage_data'); // the Data Log (incl. Excel import/export) is admin territory
 
 $pdo = db();
 

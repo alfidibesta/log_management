@@ -28,15 +28,15 @@ period**.
 | Menu | Who | What it does |
 |------|-----|--------------|
 | Dashboard | everyone | IN/OUT today, pending verifications, 7-day chart, totals by category |
-| **Input (personnel)** | everyone | **input-only page** — one compact form plus a live "open records" panel |
-| **Verify (personnel)** | everyone | the verification queue: grouped by person, counterpart record beside each row, optional remark, Verify / Undo |
+| **Record entry** | everyone | **input-only page** — one compact form plus a live "open records" panel |
+| **Verify queue** | everyone | the verification queue: grouped by person, counterpart record beside each row, optional remark, Verify / Undo |
 | **Documents out** | everyone | record a document leaving with a **fast scan / photo**, stored compressed; leaders approve or reject it |
 | **Visitors** | everyone | check **visitors / contractor workers** in and out: company, ID card, host, badge, on-site status |
 | Summary | everyone | **day / week / month / custom period** totals for belongings **and documents**, by category, by personnel type, by day, top personnel |
 | Data Log | admin | full belongings record list, filters (incl. person type), Excel export & import, delete |
 | Document Log | admin | full document take-out list, filters, Excel export |
 | Categories | admin | add / rename / hide the categories used for totals |
-| Users | admin | create accounts, set role (admin / personnel), disable accounts |
+| Users & roles | admin | create accounts, assign role (admin / leader / personnel), disable accounts — with the capability matrix and last-admin protection |
 
 ## Documents out — scan / photo + leader approval
 
@@ -58,8 +58,13 @@ recorded on **Documents out**:
 3. **The scan stays small and private.** The compressed JPEG lives in the
    `documents` row (`MEDIUMBLOB`, ~100–200 KB), so there is nothing to upload
    into a web-reachable folder; it is served only to signed-in users through
-   `document_photo.php?id=…`. The list shows the saved size per scan and the
-   average KB per scan.
+   `document_photo.php?id=…`. The list shows the saved size per scan, the
+   average KB per scan and the total MB stored.
+4. **Storage stays bounded as files pile up.** The list shows **25 take-outs
+   per page** (newest first) instead of loading every scan at once. An admin
+   can press **Free up old scans**: scans older than **90 days** are removed in
+   batches of 200 while the document record itself stays. The **Scans stored**
+   stat always shows the current total size.
 
 ## Visitors & contractor workers
 
@@ -85,17 +90,27 @@ it as a `Type` column.
 
 ## Authority (roles)
 
-- **admin** — everything: Data Log, categories, users, approving/deleting
-  documents.
-- **leader** — approves or rejects document take-outs; otherwise the same
-  working pages as personnel.
-- **personnel** — the working pages: Input, Verify, Documents out, Dashboard,
-  Summary.
+Roles are capability-based: one map in `src/helpers.php` (`role_capabilities()`)
+and every page and POST checks it through `can()` / `require_can()`, so the
+rules live in one place and cannot drift from page to page.
 
-All roles use Input/Verify/Documents/Visitors (an admin is a superset); *Data
-Log, Document Log, Categories and Users* return 403 for personnel and leaders,
-in the UI and on the server. Every page behind `login.php` is guarded, all POSTs carry a CSRF
-token, passwords use `password_hash()`.
+| Capability | admin | leader | personnel |
+|---|:--:|:--:|:--:|
+| Record gate entries | ✓ | ✓ | ✓ |
+| Verify the queue | ✓ | ✓ | ✓ |
+| Approve document take-outs | ✓ | ✓ | — |
+| Data logs, categories & export | ✓ | — | — |
+| Users & role assignment | ✓ | — | — |
+
+- **admin** — everything, including deleting records and managing accounts.
+- **leader** — records and verifies, and approves or rejects document
+  take-outs (never their own).
+- **personnel** — records gate entries and verifies the queue.
+
+Admins assign roles on **Users & roles**, which shows this matrix. Role
+changes and disabling are refused for the **last active admin**, so the site
+can always be managed. Every page behind `login.php` is guarded, all POSTs
+carry a CSRF token, passwords use `password_hash()`.
 
 ## Auto refresh (two open views stay in sync)
 
@@ -148,12 +163,11 @@ LOG_DB_USER=app LOG_DB_PASS=...   # read by config.php
 
 Schema is created automatically on the first request (`src/db.php`).
 
-## Local development (this workspace)
+## Local development
 
 ```sh
-.tools/php -S 0.0.0.0:3000 -t log-management/public
-bash .tools/smoke.sh     # 86 end-to-end checks
+php -S 0.0.0.0:3000 -t public
 ```
 
-It connects to a local MariaDB 10.11 through a unix socket using the
-operating-system user (no password stored anywhere).
+The database connection comes from `config.php` (environment variables), so no
+credentials live in the repository.

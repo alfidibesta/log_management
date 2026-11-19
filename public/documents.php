@@ -9,7 +9,7 @@
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/documents.php';
 require_once __DIR__ . '/../src/visitors.php';
-require_login();
+require_can('record');
 
 $pdo = db();
 
@@ -29,9 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $purpose = mb_substr(trim((string) ($_POST['purpose'] ?? '')), 0, 180);
         $copies  = max(1, min(9999, (int) ($_POST['copies'] ?? 1)));
         $note    = mb_substr(trim((string) ($_POST['note'] ?? '')), 0, 255);
-        $when    = (string) ($_POST['taken_at'] ?? '');
-        $ts      = $when !== '' ? strtotime($when) : time();
-        $when    = date('Y-m-d H:i:s', $ts ?: time());
+        /* Stamped by the server — the form has no editable time field. */
+        $when    = date('Y-m-d H:i:s');
 
         $err   = [];
         $photo = null;
@@ -113,21 +112,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: ' . doc_return_target());
         exit;
     }
+
+    if ($action === 'purge_photos') {
+        require_can('manage_data');
+        $cut = date('Y-m-d H:i:s', strtotime('-' . DOC_PHOTO_KEEP_DAYS . ' days'));
+        $st  = $pdo->prepare("UPDATE documents SET photo = NULL, photo_mime = '', photo_bytes = 0
+                              WHERE photo_bytes > 0 AND taken_at < ? LIMIT 200");
+        $st->execute([$cut]);
+        flash($st->rowCount() . ' scan(s) older than ' . DOC_PHOTO_KEEP_DAYS
+            . ' days removed — the document records stay. Run it again if more remain.');
+        header('Location: ' . doc_return_target());
+        exit;
+    }
 }
 
 /* ---------- list + filters ---------- */
-$status = in_array($_GET['status'] ?? '', ['pending', 'approved', 'rejected'], true) ? (string) $_GET['status'] : '';
-$q      = trim((string) ($_GET['q'] ?? ''));
-$rows   = fetch_documents($status, $q);
-$ret    = (string) ($_SERVER['QUERY_STRING'] ?? '');
+$status  = in_array($_GET['status'] ?? '', ['pending', 'approved', 'rejected'], true) ? (string) $_GET['status'] : '';
+$q       = trim((string) ($_GET['q'] ?? ''));
+$page    = max(1, (int) ($_GET['page'] ?? 1));
+$perPage = 25;
+$total   = doc_count($status, $q);
+$pages   = max(1, (int) ceil($total / $perPage));
+$page    = min($page, $pages);
+$rows    = fetch_documents($status, $q, '', '', '', $perPage, ($page - 1) * $perPage);
+$ret     = (string) ($_SERVER['QUERY_STRING'] ?? '');
 
 $_SESSION['doc_return'] = $ret;
 
 $counts = $pdo->query("SELECT status, COUNT(*) c FROM documents GROUP BY status")->fetchAll(PDO::FETCH_KEY_PAIR);
 $photos = $pdo->query("SELECT COUNT(*) n, COALESCE(SUM(photo_bytes),0) b
                        FROM documents WHERE photo_bytes > 0")->fetch();
-$photoN = (int) ($photos['n'] ?? 0);
-$photoKb = $photoN > 0 ? ((int) $photos['b'] / $photoN / 1024) : 0;
+$photoN   = (int) ($photos['n'] ?? 0);
+$photoKb  = $photoN > 0 ? ((int) $photos['b'] / $photoN / 1024) : 0;
+$photoMb  = (int) ($photos['b'] ?? 0) / 1048576;
 
 $people = $pdo->query("SELECT DISTINCT person FROM documents ORDER BY person LIMIT 60")->fetchAll(PDO::FETCH_COLUMN);
 $titles = $pdo->query("SELECT DISTINCT title FROM documents ORDER BY title LIMIT 60")->fetchAll(PDO::FETCH_COLUMN);
@@ -138,8 +155,11 @@ $companies = array_values(array_unique(array_filter(array_column($onsite, 'compa
 $prefill   = trim((string) ($_GET['person'] ?? ''));
 $preType   = in_array($_GET['type'] ?? '', ['personnel', 'visitor', 'contractor'], true) ? (string) $_GET['type'] : 'personnel';
 
-page_header('Documents Out', 'documents.php');
+page_header('Documents out', 'documents.php');
 ?>
+<div class="card">
+  <div class="card-body"><?php flow_steps('approve'); ?></div>
+</div>
 <div class="grid grid-4">
   <div class="stat tone-out">
     <div class="k">Waiting approval</div>
@@ -159,7 +179,7 @@ page_header('Documents Out', 'documents.php');
   <div class="stat">
     <div class="k">Scans stored</div>
     <div class="v"><?= number_format($photoN) ?></div>
-    <div class="s">avg <?= $photoN > 0 ? number_format($photoKb, 0) : 0 ?> KB each — compressed</div>
+    <div class="s"><?= number_format($photoMb, 1) ?> MB total · avg <?= $photoN > 0 ? number_format($photoKb, 0) : 0 ?> KB each</div>
   </div>
 </div>
 
@@ -217,7 +237,7 @@ page_header('Documents Out', 'documents.php');
           <input type="number" name="copies" value="1" min="1" max="9999">
         </label>
         <label class="field">Taken at
-          <input type="datetime-local" name="taken_at" value="<?= date('Y-m-d\TH:i') ?>">
+          <div class="field-auto"><?= date('d M Y, H:i') ?> <span class="muted">· automatic</span></div>
         </label>
         <label class="field grow">Note <span class="muted">(optional)</span>
           <input type="text" name="note" maxlength="255" placeholder="Anything the leader should know">
@@ -278,9 +298,37 @@ page_header('Documents Out', 'documents.php');
     </span>
   </form>
 
+  <?php if (can('manage_data')): ?>
+    <form method="post" style="padding:9px 14px;border-bottom:1px solid var(--line-2);display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="purge_photos">
+      <span class="filters-summary">
+        <?= number_format($photoMb, 1) ?> MB of scans stored. Old scans can be removed to save space;
+        their document records stay. Only scans older than <?= DOC_PHOTO_KEEP_DAYS ?> days are touched.
+      </span>
+      <span style="flex:1"></span>
+      <button class="btn btn-ghost btn-sm" type="submit"
+              onclick="return confirm('Remove scans older than <?= DOC_PHOTO_KEEP_DAYS ?> days? The document records stay.')">
+        Free up old scans
+      </button>
+    </form>
+  <?php endif; ?>
+
   <div class="card-body flush">
     <?php render_document_list($rows, can_approve_documents(), $ret); ?>
   </div>
+  <?php if ($pages > 1): ?>
+    <div class="pager">
+      <span><?= number_format($total) ?> documents · page <?= $page ?> of <?= $pages ?></span>
+      <span class="spacer"></span>
+      <?php if ($page > 1): ?>
+        <a class="btn btn-ghost btn-sm" href="<?= e(doc_page_url($page - 1)) ?>">← Newer</a>
+      <?php endif; ?>
+      <?php if ($page < $pages): ?>
+        <a class="btn btn-ghost btn-sm" href="<?= e(doc_page_url($page + 1)) ?>">Older →</a>
+      <?php endif; ?>
+    </div>
+  <?php endif; ?>
 </div>
 
 <script src="assets/document-scan.js" defer></script>

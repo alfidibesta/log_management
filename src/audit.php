@@ -325,62 +325,56 @@ function render_audit_trail(array $rows, string $empty = 'No changes recorded ye
         return;
     }
     ?>
-    <table class="audit">
-      <thead>
-        <tr>
-          <th>When</th>
-          <th>By</th>
-          <?php if ($showTarget): ?><th>Record</th><?php endif; ?>
-          <th>Action</th>
-          <th>Reason</th>
-          <th>Before → after</th>
-        </tr>
-      </thead>
-      <tbody>
-      <?php foreach ($rows as $r):
-          $before = json_decode((string) ($r['before_json'] ?? ''), true);
-          $after  = json_decode((string) ($r['after_json'] ?? ''), true);
-          $before = is_array($before) ? $before : [];
-          $after  = is_array($after) ? $after : [];
-          $keys   = array_unique(array_merge(array_keys($before), array_keys($after)));
-          $who    = (string) ($r['user_name'] !== '' ? $r['user_name'] : $r['username']);
-      ?>
-        <tr>
-          <td class="mono"><?= e(date('Y-m-d H:i', strtotime((string) $r['created_at']))) ?></td>
-          <td>
+    <ol class="trail">
+    <?php foreach ($rows as $r):
+        $before = json_decode((string) ($r['before_json'] ?? ''), true);
+        $after  = json_decode((string) ($r['after_json'] ?? ''), true);
+        $before = is_array($before) ? $before : [];
+        $after  = is_array($after) ? $after : [];
+        $keys   = array_unique(array_merge(array_keys($before), array_keys($after)));
+        $who    = (string) ($r['user_name'] !== '' ? $r['user_name'] : $r['username']);
+    ?>
+      <li class="trail-item">
+        <div class="trail-head">
+          <span class="badge badge-<?= e(audit_action_tone((string) $r['action'])) ?>">
+            <?= e(audit_action_label((string) $r['action'])) ?>
+          </span>
+          <span class="trail-by">
             <strong><?= e($who !== '' ? $who : '—') ?></strong>
             <?php if ($r['user_name'] !== '' && $r['username'] !== ''): ?>
-              <br><span class="muted mono"><?= e($r['username']) ?></span>
+              <span class="muted mono trail-login">(<?= e($r['username']) ?>)</span>
             <?php endif; ?>
-            <?php if (($r['ip'] ?? '') !== ''): ?>
-              <br><span class="muted" style="font-size:11px"><?= e($r['ip']) ?></span>
-            <?php endif; ?>
-          </td>
-          <?php if ($showTarget): ?>
-            <td class="muted"><?= e((string) $r['target']) ?></td>
+          </span>
+          <span class="trail-when mono"><?= e(date('Y-m-d H:i', strtotime((string) $r['created_at']))) ?></span>
+          <?php if ($showTarget && (string) $r['target'] !== ''): ?>
+            <span class="trail-target"><?= e((string) $r['target']) ?></span>
           <?php endif; ?>
-          <td>
-            <span class="badge badge-<?= e(audit_action_tone((string) $r['action'])) ?>">
-              <?= e(audit_action_label((string) $r['action'])) ?>
-            </span>
-          </td>
-          <td><?= $r['reason'] !== '' ? e((string) $r['reason']) : '<span class="muted">—</span>' ?></td>
-          <td class="audit-diff">
-            <?php if (!$keys): ?>
-              <span class="muted">—</span>
-            <?php endif; ?>
-            <?php foreach ($keys as $k): ?>
+          <?php if (($r['ip'] ?? '') !== ''): ?>
+            <span class="trail-ip mono"><?= e((string) $r['ip']) ?></span>
+          <?php endif; ?>
+        </div>
+        <?php if ((string) $r['reason'] !== ''): ?>
+          <p class="trail-reason"><?= e((string) $r['reason']) ?></p>
+        <?php endif; ?>
+        <?php if ($keys): ?>
+          <dl class="trail-diff">
+            <?php foreach ($keys as $k):
+                $was = isset($before[$k]) ? (string) $before[$k] : '';
+                $now = isset($after[$k]) ? (string) $after[$k] : '';
+            ?>
               <div class="ad-row">
-                <span class="ad-key"><?= e((string) $k) ?></span>
-                <span class="ad-before"><?= isset($before[$k]) ? e((string) $before[$k]) : '<span class="muted">—</span>' ?></span>
-                <span class="ad-arrow">→</span>
-                <span class="ad-after"><?= isset($after[$k]) ? e((string) $after[$k]) : '<span class="muted">—</span>' ?></span>
+                <dt class="ad-key"><?= e((string) $k) ?></dt>
+                <dd class="ad-val">
+                  <span class="ad-before"><?= $was !== '' ? e($was) : '<span class="muted">—</span>' ?></span>
+                  <span class="ad-arrow">→</span>
+                  <span class="ad-after"><?= $now !== '' ? e($now) : '<span class="muted">—</span>' ?></span>
+                </dd>
               </div>
             <?php endforeach; ?>
-          </td>
-        </tr>
-      <?php endforeach; ?>
-      </tbody>
-    </table>
+          </dl>
+        <?php endif; ?>
+      </li>
+    <?php endforeach; ?>
+    </ol>
     <?php
 }

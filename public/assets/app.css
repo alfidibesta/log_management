@@ -281,19 +281,33 @@ tbody tr:hover{background:#fafbfc}
 }
 
 /* Record detail + audit trail (history.php, users.php) */
-.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:10px 18px;margin:0}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px 22px;margin:0}
 .facts>div{min-width:0}
 .facts dt{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);font-weight:650}
 .facts dd{margin:2px 0 0;font-size:13px;overflow-wrap:anywhere}
-table.audit td{vertical-align:top}
-.audit-diff{min-width:230px;max-width:420px}
-.ad-row{display:flex;flex-wrap:wrap;gap:2px 6px;font-size:12px;padding:3px 0;border-bottom:1px dotted var(--line-2)}
-.ad-row:last-child{border-bottom:0}
-.ad-key{color:var(--ink-3);flex:0 0 104px;font-size:11.5px}
+
+/* One change per block, so a long reason and its diffs never fight for columns */
+.trail{list-style:none;margin:0;padding:0}
+.trail-item{padding:12px 16px;border-bottom:1px solid var(--line-2)}
+.trail-item:last-child{border-bottom:0}
+.trail-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;font-size:12.5px}
+.trail-by{color:var(--ink)}
+.trail-login{font-size:11.5px}
+.trail-when{color:var(--ink-3);font-size:11.5px}
+.trail-target{color:var(--ink-2);font-size:11.5px}
+.trail-ip{color:var(--ink-3);font-size:11px}
+.trail-reason{margin:7px 0 0;font-size:12.5px;color:var(--ink-2);max-width:78ch}
+.trail-diff{margin:9px 0 0}
+.ad-row{display:grid;grid-template-columns:118px minmax(0,1fr);gap:0 12px;padding:3px 0;font-size:12px;border-top:1px dotted var(--line-2)}
+.ad-row:first-child{border-top:0}
+.ad-key{color:var(--ink-3);font-size:11.5px;overflow-wrap:anywhere}
+.ad-val{display:block;min-width:0;margin:0}
 .ad-before{color:var(--red);text-decoration:line-through;text-decoration-thickness:1px;overflow-wrap:anywhere}
-.ad-arrow{color:var(--ink-3)}
+.ad-arrow{color:var(--ink-3);padding:0 4px}
 .ad-after{color:var(--green);font-weight:550;overflow-wrap:anywhere}
-@media (max-width:760px){
-  .ad-key{flex-basis:100%}
-  .audit-diff{min-width:0}
+@media (max-width:600px){
+  .facts{gap:10px 16px}
+  .trail-item{padding:11px 13px}
+  .ad-row{grid-template-columns:1fr;gap:1px;padding:5px 0}
+  .ad-key{font-size:11px}
 }

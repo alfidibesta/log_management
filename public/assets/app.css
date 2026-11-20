@@ -216,11 +216,12 @@ tbody tr:hover{background:#fafbfc}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
 /* Help page */
+.card[id]{scroll-margin-top:72px}
 .help-nav{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .chip{font-size:12px;font-weight:550;padding:4px 10px;border:1px solid var(--line);border-radius:999px;color:var(--ink-2);background:var(--panel)}
 .chip:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
 .caps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px}
-.caps li{font-size:12.5px;padding:5px 9px;border-radius:6px;background:var(--line-2);color:var(--ink-3)}
+.caps li{font-size:12.5px;padding:5px 9px;border-radius:6px;background:var(--line-2);color:var(--ink-2)}
 .caps li.yes{background:var(--green-soft);color:var(--green);font-weight:550}
 .help h3{font-size:13px;margin:16px 0 6px}
 .help h3:first-child{margin-top:0}
@@ -264,6 +265,11 @@ tbody tr:hover{background:#fafbfc}
 @media (max-width:900px){
   .grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}
   .grid-2{grid-template-columns:1fr}
+}
+@media (max-width:430px){
+  .topbar .pill{display:none}
+  #fixes table,#tasks table{font-size:12.5px}
+  #fixes th,#fixes td,#tasks th,#tasks td{padding:7px 8px}
 }
 @media (max-width:760px){
   .shell{flex-direction:column}

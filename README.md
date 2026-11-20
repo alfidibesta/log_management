@@ -47,6 +47,10 @@ Defaults are in the [capability matrix](#authority-roles); an admin can change
 the leader/personnel ticks, so a missing page may be deliberate. If a page
 answers **403 Forbidden**, your role lacks that capability — ask an admin.
 
+The same guide is built into the site: every signed-in user has a **Help**
+entry in the sidebar (`help.php`), which first lists the capabilities their own
+role currently holds and then shows these role-by-role steps.
+
 ### Everyone — signing in and the shared pages
 
 1. **Sign in** at the login page. On a fresh installation the login page is a

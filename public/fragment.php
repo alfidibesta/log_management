@@ -23,6 +23,11 @@ switch ($part) {
         render_verify_list(fetch_verify_rows($q), true);
         break;
 
+    case 'kiosk':
+        require_once __DIR__ . '/../src/kiosk.php';
+        render_kiosk_board();
+        break;
+
     case 'log':
         require_admin();
         $type   = ($_GET['type'] ?? '') === 'in' ? 'in' : (($_GET['type'] ?? '') === 'out' ? 'out' : '');

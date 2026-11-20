@@ -311,3 +311,50 @@ tbody tr:hover{background:#fafbfc}
   .ad-row{grid-template-columns:1fr;gap:1px;padding:5px 0}
   .ad-key{font-size:11px}
 }
+
+/* Gate kiosk (kiosk.php) — full-screen, no sidebar, read from a distance */
+body.kiosk{min-height:100vh;display:flex;flex-direction:column}
+.kiosk-top{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:12px 22px;background:var(--panel);border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:5;
+}
+.kiosk-brand{display:flex;gap:10px;align-items:center;min-width:0}
+.kiosk-brand strong{display:block;font-size:15px}
+.kiosk-brand small{display:block;font-size:11.5px;color:var(--ink-3)}
+.kiosk-clock{font-size:30px;font-weight:680;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.kiosk-nav{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.kiosk-body{padding:18px 22px;display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}
+.kiosk-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.ks{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:14px 18px}
+.ks .k{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);font-weight:650}
+.ks .v{font-size:52px;line-height:1.05;font-weight:700;letter-spacing:-.03em;margin-top:4px;font-variant-numeric:tabular-nums}
+.ks .s{font-size:12.5px;color:var(--ink-2);margin-top:3px}
+.ks.is-onsite .v{color:var(--green)}
+.ks.is-pending .v{color:var(--amber)}
+.ks.is-clear .v{color:var(--green)}
+.kiosk-cols{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;flex:1;min-height:0}
+.kiosk-cols .card{display:flex;flex-direction:column;min-height:0;min-width:0}
+.kiosk-cols .card-head{flex-wrap:wrap}
+.kiosk-cols .card-head h2{min-width:0}
+.kiosk-stats>.ks{min-width:0}
+.kiosk-cols .card-body.flush{overflow:auto}
+body.kiosk table{font-size:13.5px}
+body.kiosk th{font-size:11px}
+.kiosk-foot{
+  display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding:9px 22px;border-top:1px solid var(--line);background:var(--panel);
+  color:var(--ink-3);font-size:11.5px;
+}
+@media (max-width:900px){
+  .kiosk-stats{grid-template-columns:1fr 1fr}
+  .kiosk-cols{grid-template-columns:1fr}
+  .ks .v{font-size:42px}
+  .kiosk-body{padding:14px}
+}
+@media (max-width:600px){
+  .kiosk-top{flex-wrap:wrap;gap:8px;padding:10px 14px}
+  .kiosk-clock{font-size:22px;margin-left:auto}
+  .kiosk-nav{width:100%;justify-content:flex-start}
+  .kiosk-stats{grid-template-columns:1fr}
+}

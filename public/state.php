@@ -14,7 +14,15 @@ $r = db()->query("SELECT COUNT(*) c,
                   FROM logs")->fetch();
 $cats = (int) db()->query("SELECT COUNT(*) FROM categories")->fetchColumn();
 
-$version = implode('-', [$r['c'], $r['m'], $r['v'], $r['t'], $cats]);
+// visitors too: the gate kiosk shows them, and a check-in or check-out has to
+// reach the screen without anyone pressing reload
+$vis = db()->query("SELECT COUNT(*) c,
+                           COALESCE(MAX(id),0) m,
+                           COALESCE(UNIX_TIMESTAMP(MAX(time_out)),0) t
+                    FROM visitors")->fetch();
+
+$version = implode('-', [$r['c'], $r['m'], $r['v'], $r['t'], $cats,
+                         $vis['c'], $vis['m'], $vis['t']]);
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');

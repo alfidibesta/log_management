@@ -28,6 +28,7 @@ period**.
 | Menu | Who | What it does |
 |------|-----|--------------|
 | Dashboard | everyone | IN/OUT today, pending verifications, 7-day chart, totals by category |
+| **Gate kiosk** | everyone | full-screen gate desk for a wall screen: who is on site, today's visitors, the verify queue — refreshes itself |
 | **Record entry** | everyone | **input-only page** — one compact form plus a live "open records" panel |
 | **Verify queue** | everyone | the verification queue: grouped by person, counterpart record beside each row, optional remark, Verify / Undo |
 | **Documents out** | everyone | record a document leaving with a **fast scan / photo**, stored compressed; leaders approve or reject it |
@@ -242,6 +243,29 @@ outside people. **Summary** has a combined table — gate passes, items out,
 documents out, approved, pending — per person type, plus visitor counts for the
 period. **Data Log** and **Document Log** can filter by person type and export
 it as a `Type` column.
+
+## Gate kiosk (the desk screen)
+
+`kiosk.php` is one full-screen page with no sidebar, meant to be left open on
+the gate desk (press **F11**) and used as the shift-handover screen:
+
+- **Three numbers across the top** — on site now, records pending verification
+  (with the age of the oldest wait, so a shift change can see what was left
+  sitting), and gate passes today split IN / OUT.
+- **On site & checked in today** — everyone on site now (including someone who
+checked in on an earlier day) at the top, oldest arrival first, then today's
+visitors who have already left, with company, time in, and the time they left.
+- **Waiting to verify** — the oldest unverified records first, with direction,
+personnel, belongings and how long each has been waiting; *Open queue* jumps to
+the full verify queue.
+
+The board refreshes itself every few seconds through the same `data-live`
+mechanism as the rest of the site, and `state.php` now watches visitors as well
+as logs, so a check-in or check-out appears on the screen without anyone
+pressing reload. The clock is the **database's** clock — the same one that
+stamps `time_in` and `logged_at` — so it always agrees with the records beside
+it, whatever timezone the browser is in. Links at the top reach Visitors, the
+verify queue, recording an entry, and **Exit kiosk** back to the dashboard.
 
 ## Authority (roles)
 

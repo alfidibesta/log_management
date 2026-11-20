@@ -263,6 +263,7 @@ function nav_items(): array
 
     $items = [
         ['index.php', 'Dashboard', '▦'],
+        ['kiosk.php', 'Gate kiosk', '▤'],
         ['input.php', 'Record entry', '＋'],
         ['verify.php', $waitingVerify > 0 ? 'Verify queue (' . $waitingVerify . ')' : 'Verify queue', '✓'],
         ['documents.php', can_approve_documents() && $waitingDocs > 0

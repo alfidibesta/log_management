@@ -10,7 +10,7 @@ require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/documents.php';
 require_once __DIR__ . '/../src/visitors.php';
 require_once __DIR__ . '/../src/audit.php';
-require_can('record');
+require_can('view_documents');
 
 $pdo = db();
 
@@ -21,6 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $uid    = (int) (current_user()['id'] ?? 0);
 
     if ($action === 'create') {
+        require_can('record_document');
         $person     = mb_substr(trim((string) ($_POST['person'] ?? '')), 0, 120);
         $personType = in_array($_POST['person_type'] ?? '', ['personnel', 'visitor', 'contractor'], true)
             ? (string) $_POST['person_type'] : 'personnel';
@@ -35,11 +36,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $err   = [];
         $photo = null;
+        $pdf   = null;
         if ($person === '') { $err[] = 'Who is taking the document out?'; }
         if ($title === '')  { $err[] = 'Describe the document (name or number).'; }
 
         try {
             $photo = doc_photo_from_request();
+        } catch (RuntimeException $ex) {
+            $err[] = $ex->getMessage();
+        }
+        try {
+            $pdf = doc_file_from_request();
         } catch (RuntimeException $ex) {
             $err[] = $ex->getMessage();
         }
@@ -49,19 +56,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $st = $pdo->prepare("INSERT INTO documents
                     (person, person_type, dept, doc_no, title, purpose, copies, taken_at, note,
-                     photo, photo_mime, photo_bytes, user_id)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
+                     photo, photo_mime, photo_bytes, file_name, file_mime, file_bytes, file_data, user_id)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
             $st->execute([
                 $person, $personType, $dept, $docNo, $title, $purpose, $copies, $when, $note,
                 $photo['blob'] ?? null,
                 $photo['mime'] ?? '',
                 $photo['bytes'] ?? 0,
+                $pdf['name'] ?? '',
+                $pdf['mime'] ?? '',
+                $pdf['bytes'] ?? 0,
+                $pdf['blob'] ?? null,
                 $uid ?: null,
             ]);
             $newId = (int) $pdo->lastInsertId();
             audit_record('document', $newId, 'create', [], audit_snapshot('document', $newId) ?? []);
             flash('Document take-out recorded — waiting for leader approval.'
-                . ($photo ? ' Scan saved at ' . number_format($photo['bytes'] / 1024, 0) . ' KB.' : ''));
+                . ($photo ? ' Scan saved at ' . number_format($photo['bytes'] / 1024, 0) . ' KB.' : '')
+                . ($pdf ? ' PDF attached (' . number_format($pdf['bytes'] / 1024, 0) . ' KB).' : ''));
             header('Location: documents.php');
             exit;
         }
@@ -132,13 +144,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                               WHERE photo_bytes > 0 AND taken_at < ? LIMIT 200");
         $st->execute([$cut]);
         $removed = (int) $st->rowCount();
-        if ($removed > 0) {
+
+        $df = $pdo->prepare("UPDATE documents SET file_data = NULL, file_mime = '', file_bytes = 0
+                             WHERE file_bytes > 0 AND taken_at < ? LIMIT 200");
+        $df->execute([$cut]);
+        $removedFiles = (int) $df->rowCount();
+
+        if ($removed > 0 || $removedFiles > 0) {
             audit_record('document', null, 'purge_photos', [], [
                 'Scans removed' => (string) $removed,
+                'PDFs removed'  => (string) $removedFiles,
                 'Older than'    => $cut,
             ], (string) ($_POST['reason'] ?? ''), 'Documents · old scans');
         }
-        flash($removed . ' scan(s) older than ' . DOC_PHOTO_KEEP_DAYS
+        flash($removed . ' scan(s) and ' . $removedFiles . ' PDF(s) older than ' . DOC_PHOTO_KEEP_DAYS
             . ' days removed — the document records stay. Run it again if more remain.');
         header('Location: ' . doc_return_target());
         exit;
@@ -161,9 +180,11 @@ $_SESSION['doc_return'] = $ret;
 $counts = $pdo->query("SELECT status, COUNT(*) c FROM documents GROUP BY status")->fetchAll(PDO::FETCH_KEY_PAIR);
 $photos = $pdo->query("SELECT COUNT(*) n, COALESCE(SUM(photo_bytes),0) b
                        FROM documents WHERE photo_bytes > 0")->fetch();
-$photoN   = (int) ($photos['n'] ?? 0);
-$photoKb  = $photoN > 0 ? ((int) $photos['b'] / $photoN / 1024) : 0;
-$photoMb  = (int) ($photos['b'] ?? 0) / 1048576;
+$pdfs   = $pdo->query("SELECT COUNT(*) n, COALESCE(SUM(file_bytes),0) b
+                       FROM documents WHERE file_bytes > 0")->fetch();
+$photoN   = (int) ($photos['n'] ?? 0) + (int) ($pdfs['n'] ?? 0);
+$fileMb   = ((int) ($photos['b'] ?? 0) + (int) ($pdfs['b'] ?? 0)) / 1048576;
+$photoMb  = $fileMb;
 
 $people = $pdo->query("SELECT DISTINCT person FROM documents ORDER BY person LIMIT 60")->fetchAll(PDO::FETCH_COLUMN);
 $titles = $pdo->query("SELECT DISTINCT title FROM documents ORDER BY title LIMIT 60")->fetchAll(PDO::FETCH_COLUMN);
@@ -177,7 +198,7 @@ $preType   = in_array($_GET['type'] ?? '', ['personnel', 'visitor', 'contractor'
 page_header('Documents out', 'documents.php');
 ?>
 <div class="card">
-  <div class="card-body"><?php flow_steps('approve'); ?></div>
+  <div class="card-body"><?php flow_steps('document'); ?></div>
 </div>
 <div class="grid grid-4">
   <div class="stat tone-out">
@@ -196,16 +217,17 @@ page_header('Documents out', 'documents.php');
     <div class="s">sent back</div>
   </div>
   <div class="stat">
-    <div class="k">Scans stored</div>
+    <div class="k">Files stored</div>
     <div class="v"><?= number_format($photoN) ?></div>
-    <div class="s"><?= number_format($photoMb, 1) ?> MB total · avg <?= $photoN > 0 ? number_format($photoKb, 0) : 0 ?> KB each</div>
+    <div class="s"><?= number_format((int) ($photos['n'] ?? 0)) ?> scans · <?= number_format((int) ($pdfs['n'] ?? 0)) ?> PDFs · <?= number_format($photoMb, 1) ?> MB</div>
   </div>
 </div>
 
+<?php if (can('record_document')): ?>
 <div class="card">
   <div class="card-head">
     <h2>Record a document going out</h2>
-    <span class="filters-summary">Fast scan or photo — saved small, then approved by a leader.</span>
+    <span class="filters-summary">Fast scan, photo or PDF — then approved by a leader.</span>
   </div>
   <div class="card-body">
     <form method="post" class="grid" style="gap:14px" enctype="multipart/form-data" data-doc-form>
@@ -281,6 +303,15 @@ page_header('Documents out', 'documents.php');
         </div>
       </div>
 
+      <div class="field">
+        <span>PDF file <span class="muted">(optional — the document itself, up to 8 MB)</span></span>
+        <div class="doc-capture">
+          <input type="file" name="doc_file" accept="application/pdf,.pdf"
+                 aria-label="PDF file of the document">
+          <span class="filters-summary">A scanned paper is fine as a photo above; the PDF is for files that already exist on a computer.</span>
+        </div>
+      </div>
+
       <div class="grid grid-form">
         <p class="hint grow" style="margin:0">
           Every request stays <strong>pending</strong> until a leader (or an admin) approves it.
@@ -293,6 +324,14 @@ page_header('Documents out', 'documents.php');
     </form>
   </div>
 </div>
+<?php else: ?>
+<div class="card">
+  <div class="card-body">
+    <p class="muted" style="margin:0">Your role can follow the document queue but not record a take-out. '
+      Ask an admin for <strong>Record a document going out</strong> on Users &amp; roles.</p>
+  </div>
+</div>
+<?php endif; ?>
 
 <div class="card">
   <form method="get" class="toolbar">
@@ -334,7 +373,7 @@ page_header('Documents out', 'documents.php');
   <?php endif; ?>
 
   <div class="card-body flush">
-    <?php render_document_list($rows, can_approve_documents(), $ret); ?>
+    <?php render_document_list($rows, can('approve'), $ret); ?>
   </div>
   <?php if ($pages > 1): ?>
     <div class="pager">

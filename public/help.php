@@ -22,10 +22,11 @@ page_header('Help', 'help.php');
   </div>
   <div class="card-body">
     <p class="muted" style="margin:0">
-      The flow is always the same: <strong>1 Record</strong> a crossing,
-      <strong>2 Verify</strong> it against the opposite crossing, and
-      <strong>3 Approve</strong> document take-outs. This page explains each
-      role's part in it.
+      There are two paths, and you can start on either one:
+      <strong>belongings</strong> — record the crossing, then verify it against
+      the opposite one — and <strong>documents out</strong> — record the
+      take-out, then a leader approves it. This page explains each role's part
+      in both.
     </p>
     <div class="help-nav">
       <a class="chip" href="#everyone">Everyone</a>
@@ -44,11 +45,14 @@ page_header('Help', 'help.php');
     <span class="role role-<?= e($role) ?>" style="font-size:11px"><?= e($roleName) ?></span>
   </div>
   <div class="card-body">
-    <ul class="caps">
-      <?php foreach (capability_labels() as $cap => $label): ?>
-        <li class="<?= can($cap) ? 'yes' : '' ?>"><?= can($cap) ? '✓' : '—' ?> <?= e($label) ?></li>
-      <?php endforeach; ?>
-    </ul>
+    <?php foreach (capability_groups() as $group => $caps): ?>
+      <div class="section-title"><?= e($group) ?></div>
+      <ul class="caps">
+        <?php foreach ($caps as $cap => $label): ?>
+          <li class="<?= can($cap) ? 'yes' : '' ?>"><?= can($cap) ? '✓' : '—' ?> <?= e($label) ?></li>
+        <?php endforeach; ?>
+      </ul>
+    <?php endforeach; ?>
     <p class="muted" style="margin:10px 0 0;font-size:12px">
       This is the live configuration — an admin can change it on
       <?php if (can('manage_users')): ?>
@@ -56,8 +60,8 @@ page_header('Help', 'help.php');
       <?php else: ?>
         Users &amp; roles. If you need something that is not ticked, ask an admin.
       <?php endif; ?>
-      A page that answers <strong>403 Forbidden</strong> is one your role does
-      not hold.
+      A page your role cannot open answers <strong>403</strong> and lists the
+      pages it can open instead — it never leaves you on a dead end.
     </p>
   </div>
 </div>
@@ -71,7 +75,12 @@ page_header('Help', 'help.php');
         is always an admin.</li>
       <li><strong>Dashboard</strong> is the starting screen: who is on site,
         documents awaiting approval, today's IN/OUT, the 7-day chart, totals by
-        category, and the 1 Record → 2 Verify → 3 Approve guide.</li>
+        category, and the two gate paths (belongings, documents out).</li>
+      <li><strong>Gate kiosk</strong> is the desk screen: today's visitors, who
+        is on site and what still needs verifying, refreshing itself. Its top
+        bar opens only <em>Visitors</em>, <em>Record entry</em> and
+        <em>Documents out</em>, each without the sidebar; <strong>Exit
+        kiosk</strong> brings the normal menu back.</li>
       <li><strong>Visitors</strong> — check a visitor or contractor worker in
         <em>before</em> they walk through, and out when they leave. The row's
         <strong>Belongings</strong> and <strong>Documents</strong> shortcuts
@@ -129,7 +138,8 @@ page_header('Help', 'help.php');
     <h3>Also yours by default</h3>
     <ul>
       <li><a href="documents.php">Documents out</a> — record a document leaving,
-        with its scan. Leaders approve it; you cannot approve document take-outs.</li>
+        with a fast scan, a photo or an attached PDF. Leaders approve it; you
+        cannot approve document take-outs.</li>
       <li><a href="visitors.php">Visitors</a> — check people in and out.</li>
       <li>Deleting records, exporting data, changing categories and managing
         accounts stay with admins.</li>
@@ -152,7 +162,7 @@ page_header('Help', 'help.php');
       <li>The dashboard card <strong>Documents awaiting approval</strong> and the
         <a href="documents.php?status=pending">Documents out</a> menu show the
         pending queue.</li>
-      <li>Review the request and its scan, then press <strong>Approve</strong> or
+      <li>Review the request and its scan or PDF, then press <strong>Approve</strong> or
         <strong>Reject</strong>, with a short note if useful. The approver's name
         and the time are stored in the list.</li>
       <li>You cannot approve a request <strong>you</strong> created — another
@@ -245,6 +255,7 @@ page_header('Help', 'help.php');
         <tr><td>Check a record against the opposite crossing</td><td>Verify queue</td><td>everyone</td></tr>
         <tr><td>Note that belongings were not returned</td><td>Verify queue → remark</td><td>everyone</td></tr>
         <tr><td>Record a document going out</td><td>Documents out</td><td>everyone</td></tr>
+        <tr><td>Attach a PDF to a document take-out</td><td>Documents out → PDF file</td><td>everyone</td></tr>
         <tr><td>Approve / reject a document take-out</td><td>Documents out</td><td>leader, admin</td></tr>
         <tr><td>Check a visitor in or out</td><td>Visitors</td><td>everyone</td></tr>
         <tr><td>See totals for a day / week / month</td><td>Summary</td><td>everyone</td></tr>

@@ -15,9 +15,9 @@ $entity = (string) ($_GET['entity'] ?? 'log');
 $id     = (int) ($_GET['id'] ?? 0);
 
 $gate = [
-    'log'      => ['verify', 'manage_data'],
-    'document' => ['record', 'approve', 'manage_data'],
-    'visitor'  => ['record', 'manage_data'],
+    'log'      => ['view_verify', 'view_data'],
+    'document' => ['view_documents', 'view_data'],
+    'visitor'  => ['view_visitors', 'view_data'],
     'user'     => ['manage_users'],
 ];
 

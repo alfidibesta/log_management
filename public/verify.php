@@ -8,12 +8,13 @@
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/render.php';
 require_once __DIR__ . '/../src/audit.php';
-require_can('verify');
+require_can('view_verify');
 
 $pdo = db();
 
 /* ---------- verify / unverify ---------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['verify', 'unverify'], true)) {
+    require_can('verify');
     verify_csrf();
     $id     = (int) ($_POST['id'] ?? 0);
     // Snapshot first: the audit trail shows the values as they were.
@@ -90,7 +91,7 @@ page_header('Verify queue', 'verify.php');
   </form>
 
   <div class="card-body flush" data-live="fragment.php?part=verify<?= $q !== '' ? '&q=' . rawurlencode($q) : '' ?>">
-    <?php render_verify_list($rows, true); ?>
+    <?php render_verify_list($rows, can('verify')); ?>
   </div>
 </div>
 

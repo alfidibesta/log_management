@@ -60,7 +60,7 @@ function visitor_return_target(): string
 }
 
 /** Visitor table with check-out / undo actions and quick links to the log forms. */
-function render_visitor_list(array $rows, string $ret = ''): void
+function render_visitor_list(array $rows, string $ret = '', bool $canRecord = true): void
 {
     if (!$rows) {
         echo '<div class="empty">No visitors match this filter. Check one in with the form above.</div>';
@@ -110,11 +110,16 @@ function render_visitor_list(array $rows, string $ret = ''): void
           </td>
           <td class="muted"><?= e($v['registrar'] ?? '—') ?></td>
           <td class="row-actions" style="justify-content:flex-start">
-            <a class="btn btn-ghost btn-xs" href="input.php?person=<?= rawurlencode($v['name']) ?>">Belongings</a>
-            <a class="btn btn-ghost btn-xs"
-               href="documents.php?person=<?= rawurlencode($v['name']) ?>&amp;type=<?= e($v['person_type']) ?>">Documents</a>
+            <?php if ($canRecord): ?>
+              <a class="btn btn-ghost btn-xs" href="input.php?person=<?= rawurlencode($v['name']) ?>">Belongings</a>
+              <a class="btn btn-ghost btn-xs"
+                 href="documents.php?person=<?= rawurlencode($v['name']) ?>&amp;type=<?= e($v['person_type']) ?>">Documents</a>
+            <?php else: ?>
+              <span class="muted">—</span>
+            <?php endif; ?>
           </td>
           <td class="row-actions">
+            <?php if ($canRecord): ?>
             <form method="post" action="visitors.php">
               <?= csrf_field() ?>
               <input type="hidden" name="ret" value="<?= e($ret) ?>">
@@ -125,6 +130,7 @@ function render_visitor_list(array $rows, string $ret = ''): void
                 <button class="btn btn-ghost btn-xs" type="submit" name="action" value="back">Undo checkout</button>
               <?php endif; ?>
             </form>
+            <?php endif; ?>
             <?php if (is_admin()): ?>
               <form method="post" action="visitors.php" onsubmit="return confirm('Delete this visitor record?')">
                 <?= csrf_field() ?>

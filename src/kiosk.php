@@ -160,7 +160,8 @@ function render_kiosk_board(): void
         </div>
         <div class="card-body flush">
           <?php if (!$d['rows']): ?>
-            <div class="empty">Nobody is on site and no visitor has checked in today. Use <a href="visitors.php">Visitors</a> to check someone in.</div>
+            <div class="empty">Nobody is on site and no visitor has checked in today.
+              <?php if (can('view_visitors')): ?>Use <a href="visitors.php">Visitors</a> to check someone in.<?php endif; ?></div>
           <?php else: ?>
             <table>
               <thead>
@@ -196,7 +197,9 @@ function render_kiosk_board(): void
       <div class="card">
         <div class="card-head">
           <h2>Waiting to verify</h2>
-          <a class="btn btn-ghost btn-sm" href="verify.php">Open queue</a>
+          <?php if (can('view_verify')): ?>
+            <a class="btn btn-ghost btn-sm" href="verify.php">Open queue</a>
+          <?php endif; ?>
         </div>
         <div class="card-body flush">
           <?php if (!$d['pending']): ?>
@@ -228,8 +231,8 @@ function render_kiosk_board(): void
             </table>
             <?php if ($pendingCount > count($d['pending'])): ?>
               <div class="muted" style="padding:10px 14px;font-size:12px">
-                + <?= number_format($pendingCount - count($d['pending'])) ?> more waiting —
-                <a href="verify.php">open the whole queue</a>
+                + <?= number_format($pendingCount - count($d['pending'])) ?> more waiting<?php if (can('view_verify')): ?> —
+                <a href="verify.php">open the whole queue</a><?php endif; ?>
               </div>
             <?php endif; ?>
           <?php endif; ?>

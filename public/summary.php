@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/excel.php';
-require_login();
+require_can('view_summary');
 
 $pdo = db();
 

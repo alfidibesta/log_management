@@ -2,7 +2,10 @@
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/visitors.php';
 require_once __DIR__ . '/../src/documents.php';
-require_login();
+if (isset($_GET['exit_kiosk'])) {
+    kiosk_exit();
+}
+require_can('view_dashboard');
 
 $pdo = db();
 

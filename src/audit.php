@@ -147,6 +147,9 @@ function audit_snapshot(string $entity, int $id): ?array
             'Approved at'   => (string) ($r['approved_at'] ?? '—'),
             'Approval note' => (string) $r['approval_note'],
             'Scan'          => $bytes > 0 ? number_format($bytes / 1024, 0) . ' KB' : 'none',
+            'PDF'           => (int) ($r['file_bytes'] ?? 0) > 0
+                ? (string) $r['file_name'] . ' · ' . number_format(((int) $r['file_bytes']) / 1024, 0) . ' KB'
+                : 'none',
             'Recorded by'   => (string) ($r['requester'] ?? '—'),
         ];
     }

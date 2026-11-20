@@ -3,7 +3,7 @@ require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/render.php';
 require_once __DIR__ . '/../src/excel.php';
 require_once __DIR__ . '/../src/audit.php';
-require_can('manage_data'); // the Data Log (incl. Excel import/export) is admin territory
+require_can('view_data'); // reading the Data Log; changing it needs manage_data below
 
 $pdo = db();
 
@@ -14,6 +14,7 @@ $IMPORT_HEADERS = ['Date', 'Time', 'Person', 'Department', 'Category', 'Item', '
 
 /* ---------- import an Excel file ---------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'import') {
+    require_can('manage_data');
     verify_csrf();
     $file = $_FILES['file'] ?? null;
     if (!$file || $file['error'] !== UPLOAD_ERR_OK) {
@@ -164,6 +165,7 @@ $personType = in_array($_GET['person_type'] ?? '', ['personnel', 'visitor', 'con
 
 /* ---------- export to Excel ---------- */
 if (($_GET['do'] ?? '') === 'export') {
+    require_can('manage_data');
     [$sql, $args] = log_filter_sql($type, $from, $to, $status, $catId, $q, $personType);
     $sql .= " ORDER BY l.logged_at, l.id LIMIT 20000";
     $st = $pdo->prepare($sql);

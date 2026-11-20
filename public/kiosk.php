@@ -3,16 +3,30 @@
  * Gate-desk kiosk: today's visitors, who is on site and what still needs
  * verifying — on one full-screen page with no sidebar, refreshing itself.
  *
- * Leave it open on the gate desk (press F11 for full screen). It is also the
- * shift-handover screen: the three numbers and the waiting list are the whole
- * handover, and "as of" tells you how fresh it is.
+ * Opening it also switches the site into kiosk mode: the three gate pages
+ * (Visitors, Record entry, Documents out) render with this same top bar and no
+ * sidebar, so the desk can work the shift without the admin menu. "Exit kiosk"
+ * puts the normal site back.
  */
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/kiosk.php';
-require_login();
+require_can('view_kiosk');
+
+if (isset($_GET['exit'])) {
+    kiosk_exit();
+    header('Location: index.php');
+    exit;
+}
+
+kiosk_enter();
 
 $user  = current_user();
 $clock = kiosk_clock(); // the database's clock, the one the records are stamped with
+
+$links = [];
+if (can('view_visitors')) { $links[] = ['visitors.php', 'Visitors']; }
+if (can('view_input') && can('record')) { $links[] = ['input.php', '+ Record entry']; }
+if (can('view_documents')) { $links[] = ['documents.php', 'Documents out']; }
 ?>
 <!doctype html>
 <html lang="en">
@@ -38,10 +52,10 @@ $clock = kiosk_clock(); // the database's clock, the one the records are stamped
   </div>
 
   <nav class="kiosk-nav">
-    <a class="btn btn-ghost btn-sm" href="visitors.php">Visitors</a>
-    <a class="btn btn-ghost btn-sm" href="verify.php">Verify queue</a>
-    <a class="btn btn-ghost btn-sm" href="input.php">+ Record entry</a>
-    <a class="btn btn-ghost btn-sm" href="index.php">Exit kiosk</a>
+    <?php foreach ($links as [$href, $label]): ?>
+      <a class="btn btn-ghost btn-sm" href="<?= e($href) ?>"><?= e($label) ?></a>
+    <?php endforeach; ?>
+    <a class="btn btn-ghost btn-sm" href="kiosk.php?exit=1">Exit kiosk</a>
   </nav>
 </header>
 

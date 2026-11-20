@@ -10,12 +10,13 @@
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/visitors.php';
 require_once __DIR__ . '/../src/audit.php';
-require_can('record');
+require_can('view_visitors');
 
 $pdo = db();
 
 /* ---------- check in / check out / delete ---------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    require_can('record_visitor');
     verify_csrf();
     $action = (string) ($_POST['action'] ?? 'checkin');
     $uid    = (int) (current_user()['id'] ?? 0);
@@ -143,6 +144,7 @@ page_header('Visitors & Contractors', 'visitors.php');
   </div>
 </div>
 
+<?php if (can('record_visitor')): ?>
 <div class="card">
   <div class="card-head">
     <h2>Check in a visitor or contractor</h2>
@@ -208,6 +210,14 @@ page_header('Visitors & Contractors', 'visitors.php');
     </form>
   </div>
 </div>
+<?php else: ?>
+<div class="card">
+  <div class="card-body">
+    <p class="muted" style="margin:0">Your role can see the register but not check visitors in or out. '
+      Ask an admin for <strong>Check visitors in / out</strong> if the desk needs it.</p>
+  </div>
+</div>
+<?php endif; ?>
 
 <div class="card">
   <form method="get" class="toolbar">
@@ -237,7 +247,7 @@ page_header('Visitors & Contractors', 'visitors.php');
   </form>
 
   <div class="card-body flush">
-    <?php render_visitor_list($rows, $ret); ?>
+    <?php render_visitor_list($rows, $ret, can('record_visitor')); ?>
   </div>
 </div>
 <?php page_footer(); ?>

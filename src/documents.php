@@ -21,6 +21,8 @@ const DOC_PHOTO_MAX_INPUT = 8 * 1024 * 1024;
 const DOC_PHOTO_KEEP_DAYS = 90;
 /** JPEG quality ladder — the first step that fits the target wins. */
 const DOC_PHOTO_QUALITIES = [78, 66, 55, 45, 38];
+/** Largest PDF accepted for a take-out; a PDF cannot be shrunk like a photo. */
+const DOC_FILE_MAX_BYTES = 8 * 1024 * 1024;
 
 /**
  * Optional photo of the request: a browser-compressed data URL (photo_data)
@@ -82,6 +84,52 @@ function doc_photo_bytes_from_request(): ?string
         throw new RuntimeException('Photo upload failed — try again.');
     }
     return $bytes;
+}
+
+/**
+ * Optional PDF of the document — the paper itself, not a photo of it.
+ *
+ * A PDF cannot be compressed the way a scan is, so the size is capped here and
+ * the bytes live in the row like the scan does (no writable upload folder).
+ * The file name is kept only to label the link and as the download name.
+ *
+ * @return array{blob:string,mime:string,name:string,bytes:int}|null null when no PDF was sent
+ * @throws RuntimeException when the upload failed, is not a PDF, or is too large
+ */
+function doc_file_from_request(): ?array
+{
+    $file = $_FILES['doc_file'] ?? null;
+    if (!is_array($file)) {
+        return null;
+    }
+    $err = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
+    if ($err === UPLOAD_ERR_NO_FILE) {
+        return null;
+    }
+    if ($err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE) {
+        throw new RuntimeException('That PDF is larger than this server accepts — upload a smaller copy.');
+    }
+    if ($err !== UPLOAD_ERR_OK) {
+        throw new RuntimeException('PDF upload failed (error ' . $err . ') — try again.');
+    }
+    $tmp = (string) ($file['tmp_name'] ?? '');
+    if ($tmp === '' || !is_uploaded_file($tmp)) {
+        throw new RuntimeException('PDF upload failed — try again.');
+    }
+    if ((int) ($file['size'] ?? 0) > DOC_FILE_MAX_BYTES) {
+        throw new RuntimeException('PDF is larger than 8 MB — compress it or upload a smaller copy.');
+    }
+    $bytes = (string) file_get_contents($tmp);
+    if (strlen($bytes) < 5 || strncmp($bytes, '%PDF-', 5) !== 0) {
+        throw new RuntimeException('Only a PDF file can be attached here — put photos in the scan field.');
+    }
+    $name = basename((string) ($file['name'] ?? ''));
+    $name = (string) preg_replace('/[^\w.\- ]+/u', '_', $name);
+    $name = mb_substr(trim($name), 0, 160);
+    if ($name === '') {
+        $name = 'document.pdf';
+    }
+    return ['blob' => $bytes, 'mime' => 'application/pdf', 'name' => $name, 'bytes' => strlen($bytes)];
 }
 
 /**
@@ -206,7 +254,8 @@ function doc_filter_sql(string $status, string $q, string $from = '', string $to
 {
     [$where, $args] = doc_where($status, $q, $from, $to, $personType);
     $sql = "SELECT d.id, d.person, d.person_type, d.dept, d.doc_no, d.title, d.purpose, d.copies,
-                   d.taken_at, d.note, d.photo_bytes, d.photo_mime, d.status,
+                   d.taken_at, d.note, d.photo_bytes, d.photo_mime,
+                   d.file_name, d.file_mime, d.file_bytes, d.status,
                    d.approval_note, d.approved_at, d.user_id,
                    u.name AS requester, a.name AS approver
             FROM documents d
@@ -266,7 +315,7 @@ function render_document_list(array $rows, bool $canApprove, string $ret = '', b
     <table>
       <thead>
         <tr>
-          <th>Scan / photo</th><th>Taken</th><th>Personnel</th><th>Document</th>
+          <th>Scan / file</th><th>Taken</th><th>Personnel</th><th>Document</th>
           <th class="num">Copies</th><th>Approval</th><th>Recorded by</th><?php if ($actions): ?><th></th><?php endif; ?>
         </tr>
       </thead>
@@ -280,8 +329,15 @@ function render_document_list(array $rows, bool $canApprove, string $ret = '', b
                 <img class="doc-photo" src="document_photo.php?id=<?= $id ?>" loading="lazy"
                      alt="Scan of <?= e($r['title']) ?>">
               </a>
-            <?php else: ?>
-              <span class="doc-photo doc-photo-none">no photo</span>
+            <?php endif; ?>
+            <?php if ((int) ($r['file_bytes'] ?? 0) > 0): ?>
+              <a class="doc-file-link" href="document_file.php?id=<?= $id ?>" target="_blank" rel="noopener"
+                 title="Open the PDF — <?= e((string) $r['file_name']) ?>">
+                <span class="doc-file-ico">PDF</span>
+                <span><?= number_format(((int) $r['file_bytes']) / 1024, 0) ?> KB</span>
+              </a>
+            <?php elseif ((int) $r['photo_bytes'] === 0): ?>
+              <span class="doc-photo doc-photo-none">no file</span>
             <?php endif; ?>
           </td>
           <td class="mono"><a href="history.php?entity=document&amp;id=<?= $id ?>"
@@ -322,8 +378,11 @@ function render_document_list(array $rows, bool $canApprove, string $ret = '', b
             <?php if ($r['approval_note'] !== ''): ?>
               <br><span class="muted" style="font-size:11.5px">“<?= e($r['approval_note']) ?>”</span>
             <?php endif; ?>
-            <?php if ((int) $r['photo_bytes'] > 0): ?>
-              <br><span class="muted" style="font-size:11px"><?= number_format(((int) $r['photo_bytes']) / 1024, 0) ?> KB saved</span>
+            <?php if ((int) $r['photo_bytes'] > 0 || (int) ($r['file_bytes'] ?? 0) > 0): ?>
+              <br><span class="muted" style="font-size:11px">
+                <?= number_format((((int) $r['photo_bytes']) + ((int) ($r['file_bytes'] ?? 0))) / 1024, 0) ?> KB saved
+                <?php if ((int) ($r['file_bytes'] ?? 0) > 0): ?>· PDF<?php endif; ?>
+              </span>
             <?php endif; ?>
           </td>
           <td class="muted"><?= e($r['requester'] ?? '—') ?></td>

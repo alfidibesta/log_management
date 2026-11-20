@@ -3,12 +3,13 @@ require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/render.php';
 require_once __DIR__ . '/../src/visitors.php';
 require_once __DIR__ . '/../src/audit.php';
-require_can('record');
+require_can('view_input');
 
 $pdo = db();
 
 /* ---------- save: this page exists only for input ---------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    require_can('record');
     verify_csrf();
     $person     = trim((string) ($_POST['person'] ?? ''));
     $personType = in_array($_POST['person_type'] ?? '', ['personnel', 'visitor', 'contractor'], true)
@@ -62,6 +63,7 @@ page_header('Record entry', 'input.php');
 <div class="card">
   <div class="card-body"><?php flow_steps('record'); ?></div>
 </div>
+<?php if (can('record')): ?>
 <div class="card">
   <div class="card-head">
     <h2>Record personnel passing the main gate</h2>
@@ -154,6 +156,14 @@ page_header('Record entry', 'input.php');
     </form>
   </div>
 </div>
+<?php else: ?>
+<div class="card">
+  <div class="card-body">
+    <p class="muted" style="margin:0">Your role can open this page but not record crossings. '
+      Ask an admin for <strong>Record belongings IN / OUT</strong> on Users &amp; roles.</p>
+  </div>
+</div>
+<?php endif; ?>
 
 <div class="card">
   <div class="card-head">

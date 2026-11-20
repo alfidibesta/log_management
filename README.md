@@ -8,10 +8,15 @@ period**.
 
 ## Personnel flow
 
-1. **Record on entry / exit** — personnel (or the gate officer on their behalf)
-   logs every crossing on the *Input* page: who, direction (IN/OUT), category,
+Two paths sit at the gate. They are not numbered, because an officer starts on
+whichever page the person in front of them needs.
+
+**Belongings (IN / OUT)**
+
+1. **Record the crossing** — personnel (or the gate officer on their behalf)
+   logs it on the *Record entry* page: who, direction (IN/OUT), category,
    belongings, quantity, gate, time.
-2. **Verify against the record on exit / return** — the record sits in the
+2. **Verify it against the opposite crossing** — the record sits in the
    *Verify* queue. When that person leaves or returns, the record is checked
    against their **opposite crossing record**, which is shown side by side
    (`Check against (opposite crossing)`), then marked ✓ verified with the
@@ -23,15 +28,22 @@ period**.
    `Item missing / damaged`) and it is stored with the verification, shown in
    the Data Log under the status, and exported to Excel. Undo clears it.
 
+**Documents out**
+
+1. **Record the take-out** on *Documents out* — who, the document, and a fast
+   scan / photo or an attached **PDF**.
+2. **A leader approves or rejects it.** A document never passes through the
+   belongings queue, so it has its own short path.
+
 ## Menu
 
 | Menu | Who | What it does |
 |------|-----|--------------|
 | Dashboard | everyone | IN/OUT today, pending verifications, 7-day chart, totals by category |
-| **Gate kiosk** | everyone | full-screen gate desk for a wall screen: who is on site, today's visitors, the verify queue — refreshes itself |
+| **Gate kiosk** | everyone | full-screen gate desk for a wall screen: who is on site, today's visitors, the verify queue — refreshes itself. Opening it puts the site in **kiosk mode**: the top bar reaches only *Visitors*, *Record entry* and *Documents out*, each rendered on its own without the sidebar, and **Exit kiosk** brings the normal menu back |
 | **Record entry** | everyone | **input-only page** — one compact form plus a live "open records" panel |
 | **Verify queue** | everyone | the verification queue: grouped by person, counterpart record beside each row, optional remark, Verify / Undo |
-| **Documents out** | everyone | record a document leaving with a **fast scan / photo**, stored compressed; leaders approve or reject it |
+| **Documents out** | everyone | record a document leaving with a **fast scan / photo** (stored compressed) or an **attached PDF**; leaders approve or reject it |
 | **Visitors** | everyone | check **visitors / contractor workers** in and out: company, ID card, host, badge, on-site status |
 | Summary | everyone | **day / week / month / custom period** totals for belongings **and documents**, by category, by personnel type, by day, top personnel |
 | Help | everyone | this role guide inside the app: what your role can do, each role's steps, correcting mistakes, quick reference |
@@ -58,7 +70,7 @@ role currently holds and then shows these role-by-role steps.
    *create admin account* form instead; the first account is always an admin.
 2. **Dashboard** is the starting screen: how many people are on site, how many
    documents await approval, today's IN/OUT, the 7-day chart, totals by
-   category, and the **1 Record → 2 Verify → 3 Approve** guide.
+   category, and the two gate paths (belongings, documents out) as links.
 3. **Visitors** — check a visitor or contractor worker in *before* they walk
    through, and check them out when they leave. Their row has **Belongings**
    and **Documents** shortcuts that pre-fill the two forms and tag the record
@@ -199,13 +211,16 @@ capability and that cannot be removed, so the site can never be locked out.
 A document that leaves the site (drawing, PO, invoice, report binder) is
 recorded on **Documents out**:
 
-1. **Add it with a fast scan or a photo.** *Fast scan (camera)* opens the
-   phone camera (`capture`), the file input picks an existing photo. The
+1. **Add it with a fast scan, a photo, or a PDF.** *Fast scan (camera)* opens
+   the phone camera (`capture`), the file input picks an existing photo. The
    browser downscales it to 1600 px and re-encodes it as JPEG until it fits
    **≤ 200 KB** (`assets/document-scan.js`), then sends only that small copy.
    Without JavaScript the plain upload still works — the server compresses it
    with **GD** (`src/documents.php`), shrinking dimensions and quality until
-   the target size is reached, and refuses anything that stays huge.
+   the target size is reached, and refuses anything that stays huge. For a
+   document that already exists as a file, the **PDF file** field takes it as
+   is (up to **8 MB**, checked to start with `%PDF-`); it is opened from the
+   list through `document_file.php?id=…` and only for signed-in users.
 2. **Wait for approval.** Every new request is *pending*. A **leader** (or an
    admin) approves or rejects it with an optional note; the approver and the
    time are stored and shown in the list. A leader cannot approve their own
@@ -217,10 +232,10 @@ recorded on **Documents out**:
    `document_photo.php?id=…`. The list shows the saved size per scan, the
    average KB per scan and the total MB stored.
 4. **Storage stays bounded as files pile up.** The list shows **25 take-outs
-   per page** (newest first) instead of loading every scan at once. An admin
-   can press **Free up old scans**: scans older than **90 days** are removed in
-   batches of 200 while the document record itself stays. The **Scans stored**
-   stat always shows the current total size.
+   per page** (newest first) instead of loading every file at once. An admin
+   can press **Free up old scans**: scans *and* PDFs older than **90 days** are
+   removed in batches of 200 while the document record itself stays. The
+   **Files stored** stat shows scans, PDFs and the total size.
 
 ## Visitors & contractor workers
 
@@ -264,36 +279,65 @@ mechanism as the rest of the site, and `state.php` now watches visitors as well
 as logs, so a check-in or check-out appears on the screen without anyone
 pressing reload. The clock is the **database's** clock — the same one that
 stamps `time_in` and `logged_at` — so it always agrees with the records beside
-it, whatever timezone the browser is in. Links at the top reach Visitors, the
-verify queue, recording an entry, and **Exit kiosk** back to the dashboard.
+it, whatever timezone the browser is in.
+
+**Kiosk mode.** Opening the kiosk puts the site in kiosk mode: every page you
+touch from there renders with the same top bar and **no sidebar**, showing only
+that page. The bar reaches exactly the three gate jobs — *Visitors*,
+*Record entry* and *Documents out* (each only if the role holds that page) —
+plus **Exit kiosk**, which returns the normal sidebar. Forms saved in kiosk
+mode keep the mode, so the desk never falls back into the admin menu mid-shift.
 
 ## Authority (roles)
 
-Roles are capability-based: one map in `src/helpers.php` (`role_capabilities()`)
-and every page and POST checks it through `can()` / `require_can()`, so the
-rules live in one place and cannot drift from page to page.
+Roles are capability-based: one catalog in `src/helpers.php`
+(`capability_catalog()`), read through `can()` / `require_can()` on every page
+and POST, so the rules live in one place and cannot drift from page to page.
+Permissions come in two kinds, and they are deliberately separate:
 
-| Capability | admin | leader | personnel |
-|---|:--:|:--:|:--:|
-| Record gate entries | ✓ | ✓ | ✓ |
-| Verify the queue | ✓ | ✓ | ✓ |
-| Approve document take-outs | ✓ | ✓ | — |
-| Data logs, categories & export | ✓ | — | — |
-| Users & role assignment | ✓ | — | — |
+- **Pages** — which pages a role may open. The sidebar lists only those, and
+  opening another one answers **403** with a card listing the pages the account
+  *can* open, so nobody is left on a dead end.
+- **Forms and records** — which forms the role may submit and which records it
+  may change. A page can be readable without its form: the form is hidden and
+  the POST is refused, so an officer can watch the document queue without being
+  able to record a take-out.
+
+| Capability | Group | admin | leader | personnel |
+|---|---|:--:|:--:|:--:|
+| Dashboard | Pages | ✓ | ✓ | ✓ |
+| Gate kiosk (desk screen) | Pages | ✓ | ✓ | ✓ |
+| Visitors & contractors | Pages | ✓ | ✓ | ✓ |
+| Record entry | Pages | ✓ | ✓ | ✓ |
+| Verify queue | Pages | ✓ | ✓ | ✓ |
+| Documents out | Pages | ✓ | ✓ | ✓ |
+| Summary | Pages | ✓ | ✓ | ✓ |
+| Data Log, Document Log & Categories | Pages | ✓ | — | — |
+| Users & roles | Pages | ✓ | — | — |
+| Record belongings IN / OUT | Forms | ✓ | ✓ | ✓ |
+| Check visitors in / out | Forms | ✓ | ✓ | ✓ |
+| Record a document going out | Forms | ✓ | ✓ | ✓ |
+| Verify records (and undo) | Records | ✓ | ✓ | ✓ |
+| Approve / reject document take-outs | Records | ✓ | ✓ | — |
+| Delete, import & export records; categories | Administration | ✓ | — | — |
+| Create accounts, roles & permissions | Administration | ✓ | — | — |
 
 - **admin** — everything, including deleting records and managing accounts.
-- **leader** — records and verifies, and approves or rejects document
+- **leader** — every gate page and form, and approves or rejects document
   take-outs (never their own).
-- **personnel** — records gate entries and verifies the queue.
+- **personnel** — every gate page and form, verifying the queue; no document
+  approval and no administration.
 
-Admins assign roles on **Users & roles**, which shows this matrix with the
-Leader and Personnel columns editable: tick a capability, press **Save
-permissions**, and it applies on the next request (stored as JSON in the
-`settings` table). **Restore defaults** returns to the matrix above. The Admin
-row is always full control, so the site cannot be locked out, and role changes
-or disabling are refused for the **last active admin**. Every page behind
-`login.php` is guarded, all POSTs carry a CSRF token, passwords use
-`password_hash()`.
+Admins assign roles on **Users & roles**, which shows this matrix in groups
+(Pages, Forms, Records, Administration) with the Leader and Personnel columns
+editable: tick a capability, press **Save permissions**, and it applies on the
+next request (stored as JSON in the `settings` table). **Restore defaults**
+returns to the matrix above. A saved matrix from an older version (the five
+wide capabilities) is expanded to the pages and forms it used to unlock, so an
+upgrade never locks people out. The Admin column is always full control, so the
+site cannot be locked out, and role changes or disabling are refused for the
+**last active admin**. Every page behind `login.php` is guarded, all POSTs
+carry a CSRF token, passwords use `password_hash()`.
 
 ## Auto refresh (two open views stay in sync)
 
@@ -305,7 +349,8 @@ the container marked `data-live`.
 So: open *Input* in one window and *Verify* (or *Data Log*) in another — an
 entry recorded in one appears in the other within a few seconds, no manual
 reload. Fragment parts: `open` (person's open records), `verify` (queue),
-`log` (admin data log). Both endpoints require a signed-in session.
+`kiosk` (the desk board) and `log` (data log). Both endpoints require a
+signed-in session.
 
 ## Excel export & import (admin → Data Log)
 

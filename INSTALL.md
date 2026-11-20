@@ -9,6 +9,7 @@ The site is plain PHP + MySQL — no framework, no composer, no build step.
 | PHP **8.1 or newer** with `pdo_mysql` | runs the site |
 | PHP **zip** extension (`ZipArchive`) | reading/writing the Excel files |
 | PHP **GD** extension (`imagejpeg`) | compressing document scans / photos to ~200 KB |
+| `upload_max_filesize` / `post_max_size` of at least **10M** | accepting a PDF (up to 8 MB) on Documents out |
 | MySQL 5.7+/8+ or MariaDB 10.3+ | the database |
 
 XAMPP, WAMP, Laragon (Windows) and MAMP (macOS) all ship PHP with both

@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/audit.php';
-require_can('manage_users');
+require_can('view_users');
 
 $pdo = db();
 
@@ -12,6 +12,7 @@ function active_admin_count(PDO $pdo): int
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    require_can('manage_users');
     verify_csrf();
     $action = $_POST['action'] ?? '';
     $selfId = (int) (current_user()['id'] ?? 0);
@@ -53,7 +54,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         $before = caps_snapshot(role_capabilities());
-        setting_set('role_caps', json_encode($caps));
+        // `_v` marks the current capability set: it tells role_capabilities()
+        // not to read the plain key "record" as the old wide grant.
+        setting_set('role_caps', json_encode($caps + ['_v' => 2]));
         audit_record('role_caps', null, 'permissions', $before, caps_snapshot($caps),
             (string) ($_POST['reason'] ?? ''), 'Role capabilities');
         flash('Role permissions saved — they apply on the next request.');
@@ -163,7 +166,7 @@ page_header('Users & roles', 'users.php');
 <div class="card">
   <div class="card-head">
     <h2>Roles &amp; access</h2>
-    <span class="filters-summary">What each role may do — enforced on every page and POST</span>
+    <span class="filters-summary">What each role may open, submit and change — enforced on every page, form and POST</span>
   </div>
   <div class="card-body flush">
     <form method="post">
@@ -174,7 +177,9 @@ page_header('Users & roles', 'users.php');
           <tr><th>Capability</th><th>Admin</th><th>Leader</th><th>Personnel</th></tr>
         </thead>
         <tbody>
-        <?php foreach (capability_labels() as $cap => $label): ?>
+        <?php foreach (capability_groups() as $group => $caps): ?>
+          <tr class="perm-group"><th colspan="4"><?= e($group) ?></th></tr>
+          <?php foreach ($caps as $cap => $label): ?>
           <tr>
             <td><?= e($label) ?></td>
             <td><span class="badge badge-in">✓</span></td>
@@ -186,6 +191,7 @@ page_header('Users & roles', 'users.php');
               </td>
             <?php endforeach; ?>
           </tr>
+          <?php endforeach; ?>
         <?php endforeach; ?>
         </tbody>
       </table>

@@ -14,16 +14,19 @@ header('Cache-Control: no-store');
 
 switch ($part) {
     case 'open':
+        require_can('view_input');
         $person = trim((string) ($_GET['person'] ?? ''));
         render_open_records(fetch_open_records($person), $person);
         break;
 
     case 'verify':
+        require_can('view_verify');
         $q = trim((string) ($_GET['q'] ?? ''));
         render_verify_list(fetch_verify_rows($q), true);
         break;
 
     case 'kiosk':
+        require_can('view_kiosk');
         require_once __DIR__ . '/../src/kiosk.php';
         render_kiosk_board();
         break;

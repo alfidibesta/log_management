@@ -129,6 +129,10 @@ function ensure_schema(PDO $pdo): void
         photo         MEDIUMBLOB   NULL,
         photo_mime    VARCHAR(40)  NOT NULL DEFAULT '',
         photo_bytes   INT UNSIGNED NOT NULL DEFAULT 0,
+        file_name     VARCHAR(160) NOT NULL DEFAULT '',
+        file_mime     VARCHAR(80)  NOT NULL DEFAULT '',
+        file_bytes    INT UNSIGNED NOT NULL DEFAULT 0,
+        file_data     MEDIUMBLOB   NULL,
         status        ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
         approved_by   INT UNSIGNED NULL,
         approved_at   DATETIME     NULL,
@@ -143,6 +147,17 @@ function ensure_schema(PDO $pdo): void
         CONSTRAINT fk_documents_user     FOREIGN KEY (user_id)     REFERENCES users (id) ON DELETE SET NULL,
         CONSTRAINT fk_documents_approver FOREIGN KEY (approved_by) REFERENCES users (id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    // migration: an attached PDF of the document itself (the paper rather
+    // than a photo of it). Added after the table shipped, so old databases
+    // get the columns without a manual step.
+    if (!$pdo->query("SHOW COLUMNS FROM documents LIKE 'file_data'")->fetch()) {
+        $pdo->exec("ALTER TABLE documents
+            ADD COLUMN file_name  VARCHAR(160) NOT NULL DEFAULT '' AFTER photo_bytes,
+            ADD COLUMN file_mime  VARCHAR(80)  NOT NULL DEFAULT '' AFTER file_name,
+            ADD COLUMN file_bytes INT UNSIGNED NOT NULL DEFAULT 0 AFTER file_mime,
+            ADD COLUMN file_data  MEDIUMBLOB   NULL AFTER file_bytes");
+    }
 
     // migration: distinguish employees, visitors and contractor workers
     foreach (['logs', 'documents'] as $table) {

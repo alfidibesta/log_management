@@ -33,6 +33,7 @@ period**.
 | **Documents out** | everyone | record a document leaving with a **fast scan / photo**, stored compressed; leaders approve or reject it |
 | **Visitors** | everyone | check **visitors / contractor workers** in and out: company, ID card, host, badge, on-site status |
 | Summary | everyone | **day / week / month / custom period** totals for belongings **and documents**, by category, by personnel type, by day, top personnel |
+| Help | everyone | this role guide inside the app: what your role can do, each role's steps, correcting mistakes, quick reference |
 | Data Log | admin | full belongings record list, filters (incl. person type), Excel export & import, delete |
 | Document Log | admin | full document take-out list, filters, Excel export |
 | Categories | admin | add / rename / hide the categories used for totals |

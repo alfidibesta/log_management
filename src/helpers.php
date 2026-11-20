@@ -244,6 +244,7 @@ function nav_items(): array
             ? 'Documents out (' . $waitingDocs . ')' : 'Documents out', '⇪'],
         ['visitors.php', 'Visitors', '⚑'],
         ['summary.php', 'Summary', '≡'],
+        ['help.php', 'Help', '?'],
     ];
     if (can('manage_data')) {
         $items[] = ['log.php', 'Data Log', '☰'];

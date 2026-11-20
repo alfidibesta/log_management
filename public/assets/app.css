@@ -1,4 +1,4 @@
-/* Factory Log — compact, minimalist, modern */
+/* Access Factory Management — compact, minimalist, modern */
 :root{
   --bg:#f4f5f7; --panel:#fff; --line:#e6e8ec; --line-2:#eef0f3;
   --ink:#16181d; --ink-2:#5b6070; --ink-3:#8b90a0;
@@ -53,6 +53,7 @@ small{color:var(--ink-3)}
 .who-txt strong{display:block;font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .role{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em}
 .role-admin{color:var(--accent)}
+.role-leader{color:var(--amber)}
 .role-operator{color:var(--ink-3)}
 .link-quiet{font-size:12px;color:var(--ink-3)}
 .link-quiet:hover{color:var(--red)}
@@ -99,6 +100,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 textarea{resize:vertical;min-height:34px}
 .form-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
 .form-row .grow{flex:1;min-width:150px}
+.field-auto{padding:7px 9px;border:1px dashed var(--line);border-radius:var(--r-sm);font-size:13px;font-weight:500;color:var(--ink-2);background:var(--line-2)}
 
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:6px;
@@ -148,6 +150,7 @@ tbody tr:hover{background:#fafbfc}
 .badge-out{background:var(--amber-soft);color:var(--amber)}
 .badge-neutral{background:var(--line-2);color:var(--ink-2)}
 .badge-accent{background:var(--accent-soft);color:var(--accent)}
+.badge-danger{background:var(--red-soft);color:var(--red)}
 
 /* Toolbar / filters */
 .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;padding:12px 14px;border-bottom:1px solid var(--line-2)}
@@ -180,6 +183,31 @@ tbody tr:hover{background:#fafbfc}
 .auth-foot{margin-top:14px;font-size:12.5px;color:var(--ink-3);text-align:center}
 .hint{font-size:12px;color:var(--ink-3);background:var(--line-2);border-radius:var(--r-sm);padding:8px 10px}
 
+/* The two gate paths — belongings and documents. No step numbers: an officer
+   starts on whichever page the person in front of them needs. */
+.flow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.flow-set{min-width:0;border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 11px;background:var(--panel)}
+.flow-set.is-active{border-color:var(--accent);background:var(--accent-soft)}
+.flow-set-head{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);font-weight:650;margin-bottom:6px}
+.flow-path{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.flow-step{display:flex;gap:8px;align-items:center;padding:6px 9px;border:1px solid var(--line);border-radius:var(--r-sm);color:var(--ink-2);background:#fff;min-width:0}
+.flow-step:hover{border-color:#cfd3db;text-decoration:none;background:#fbfbfc}
+.flow-step.is-active{border-color:var(--accent);background:var(--accent)}
+.flow-step.is-active .flow-tx strong{color:#fff}
+.flow-step.is-active .flow-tx small{color:rgba(255,255,255,.82)}
+.flow-arrow{color:var(--ink-3);font-size:13px}
+.flow-tx strong{display:block;font-size:12.5px;color:var(--ink);line-height:1.2}
+.flow-tx small{display:block;font-size:11px;line-height:1.3}
+@media (max-width:760px){.flow{grid-template-columns:1fr}}
+
+/* Pager / role matrix */
+.pager{display:flex;gap:8px;align-items:center;padding:10px 14px;border-top:1px solid var(--line-2);font-size:12.5px;color:var(--ink-2)}
+.pager .spacer{flex:1}
+.roles td:not(:first-child),.roles th:not(:first-child){text-align:center;width:96px}
+.roles tr.perm-group th{background:var(--line-2);text-align:left;width:auto;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);font-weight:650}
+.roles input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+.perm-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--line-2)}
+
 /* Verification queue */
 .vgroup{border-bottom:1px solid var(--line-2)}
 .vgroup:last-child{border-bottom:0}
@@ -193,6 +221,20 @@ tbody tr:hover{background:#fafbfc}
 .live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#12a06f;margin-right:6px;
   animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* Help page */
+.card[id]{scroll-margin-top:72px}
+.help-nav{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chip{font-size:12px;font-weight:550;padding:4px 10px;border:1px solid var(--line);border-radius:999px;color:var(--ink-2);background:var(--panel)}
+.chip:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
+.caps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px}
+.caps li{font-size:12.5px;padding:5px 9px;border-radius:6px;background:var(--line-2);color:var(--ink-2)}
+.caps li.yes{background:var(--green-soft);color:var(--green);font-weight:550}
+.help h3{font-size:13px;margin:16px 0 6px}
+.help h3:first-child{margin-top:0}
+.help ol,.help ul{margin:0 0 10px;padding-left:20px;font-size:13px;color:var(--ink-2)}
+.help ol li,.help ul li{margin:3px 0}
+.help p{font-size:13px;color:var(--ink-2);margin:0 0 10px}
 
 /* Misc */
 .row-actions{display:flex;gap:6px;justify-content:flex-end;align-items:center}
@@ -208,6 +250,21 @@ tbody tr:hover{background:#fafbfc}
   .col-remark{width:auto}
   .remark-input{width:100%}
 }
+/* Document scans (documents.php) */
+.doc-photo{width:88px;height:64px;object-fit:cover;border-radius:7px;border:1px solid var(--line);background:var(--line-2);display:block}
+.doc-photo-none{display:grid;place-items:center;font-size:10.5px;color:var(--ink-3)}
+.doc-photo-link{display:inline-block}
+.doc-photo-link:hover .doc-photo{border-color:var(--accent)}
+.doc-capture{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.doc-capture input[type=file]{width:auto;max-width:220px;font-size:12px;border:0;background:none;padding:4px 0;color:var(--ink-2)}
+.doc-preview{display:none;gap:10px;align-items:center;background:var(--line-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:8px}
+.doc-preview.has-photo{display:flex}
+.doc-preview img{width:118px;height:88px;object-fit:cover;border-radius:6px;border:1px solid var(--line);background:#fff}
+.doc-preview-meta{display:flex;flex-direction:column;gap:4px;align-items:flex-start;font-size:12px;color:var(--ink-2)}
+.doc-preview-meta strong{font-size:12.5px;color:var(--ink)}
+.doc-approve{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.doc-approve .remark-input{width:130px}
+@media (max-width:760px){.doc-approve .remark-input{width:100%}}
 .section-title{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);font-weight:650;margin:4px 0 2px}
 .filters-summary{font-size:12.5px;color:var(--ink-2)}
 .kbd{font-family:ui-monospace,monospace;background:var(--line-2);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:11.5px}
@@ -215,6 +272,11 @@ tbody tr:hover{background:#fafbfc}
 @media (max-width:900px){
   .grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}
   .grid-2{grid-template-columns:1fr}
+}
+@media (max-width:430px){
+  .topbar .pill{display:none}
+  #fixes table,#tasks table{font-size:12.5px}
+  #fixes th,#fixes td,#tasks th,#tasks td{padding:7px 8px}
 }
 @media (max-width:760px){
   .shell{flex-direction:column}
@@ -224,3 +286,93 @@ tbody tr:hover{background:#fafbfc}
   .content{padding:14px}
   table{display:block;overflow-x:auto}
 }
+
+/* Record detail + audit trail (history.php, users.php) */
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px 22px;margin:0}
+.facts>div{min-width:0}
+.facts dt{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);font-weight:650}
+.facts dd{margin:2px 0 0;font-size:13px;overflow-wrap:anywhere}
+
+/* One change per block, so a long reason and its diffs never fight for columns */
+.trail{list-style:none;margin:0;padding:0}
+.trail-item{padding:12px 16px;border-bottom:1px solid var(--line-2)}
+.trail-item:last-child{border-bottom:0}
+.trail-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;font-size:12.5px}
+.trail-by{color:var(--ink)}
+.trail-login{font-size:11.5px}
+.trail-when{color:var(--ink-3);font-size:11.5px}
+.trail-target{color:var(--ink-2);font-size:11.5px}
+.trail-ip{color:var(--ink-3);font-size:11px}
+.trail-reason{margin:7px 0 0;font-size:12.5px;color:var(--ink-2);max-width:78ch}
+.trail-diff{margin:9px 0 0}
+.ad-row{display:grid;grid-template-columns:118px minmax(0,1fr);gap:0 12px;padding:3px 0;font-size:12px;border-top:1px dotted var(--line-2)}
+.ad-row:first-child{border-top:0}
+.ad-key{color:var(--ink-3);font-size:11.5px;overflow-wrap:anywhere}
+.ad-val{display:block;min-width:0;margin:0}
+.ad-before{color:var(--red);text-decoration:line-through;text-decoration-thickness:1px;overflow-wrap:anywhere}
+.ad-arrow{color:var(--ink-3);padding:0 4px}
+.ad-after{color:var(--green);font-weight:550;overflow-wrap:anywhere}
+@media (max-width:600px){
+  .facts{gap:10px 16px}
+  .trail-item{padding:11px 13px}
+  .ad-row{grid-template-columns:1fr;gap:1px;padding:5px 0}
+  .ad-key{font-size:11px}
+}
+
+/* Gate kiosk (kiosk.php) — full-screen, no sidebar, read from a distance */
+body.kiosk{min-height:100vh;display:flex;flex-direction:column}
+.kiosk-top{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:12px 22px;background:var(--panel);border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:5;
+}
+.kiosk-brand{display:flex;gap:10px;align-items:center;min-width:0}
+.kiosk-brand strong{display:block;font-size:15px}
+.kiosk-brand small{display:block;font-size:11.5px;color:var(--ink-3)}
+.kiosk-clock{font-size:30px;font-weight:680;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.kiosk-nav{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.kiosk-body{padding:18px 22px;display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}
+.kiosk-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.ks{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:14px 18px}
+.ks .k{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);font-weight:650}
+.ks .v{font-size:52px;line-height:1.05;font-weight:700;letter-spacing:-.03em;margin-top:4px;font-variant-numeric:tabular-nums}
+.ks .s{font-size:12.5px;color:var(--ink-2);margin-top:3px}
+.ks.is-onsite .v{color:var(--green)}
+.ks.is-pending .v{color:var(--amber)}
+.ks.is-clear .v{color:var(--green)}
+.kiosk-cols{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;flex:1;min-height:0}
+.kiosk-cols .card{display:flex;flex-direction:column;min-height:0;min-width:0}
+.kiosk-cols .card-head{flex-wrap:wrap}
+.kiosk-cols .card-head h2{min-width:0}
+.kiosk-stats>.ks{min-width:0}
+.kiosk-cols .card-body.flush{overflow:auto}
+body.kiosk table{font-size:13.5px}
+body.kiosk th{font-size:11px}
+.kiosk-foot{
+  display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding:9px 22px;border-top:1px solid var(--line);background:var(--panel);
+  color:var(--ink-3);font-size:11.5px;
+}
+@media (max-width:900px){
+  .kiosk-stats{grid-template-columns:1fr 1fr}
+  .kiosk-cols{grid-template-columns:1fr}
+  .ks .v{font-size:42px}
+  .kiosk-body{padding:14px}
+}
+@media (max-width:600px){
+  .kiosk-top{flex-wrap:wrap;gap:8px;padding:10px 14px}
+  .kiosk-clock{font-size:22px;margin-left:auto}
+  .kiosk-nav{width:100%;justify-content:flex-start}
+  .kiosk-stats{grid-template-columns:1fr}
+}
+
+/* A page opened from the gate kiosk: same top bar, no sidebar, nothing else */
+.kiosk-page-body{gap:14px;overflow:auto}
+.kiosk-page-body .card{min-width:0}
+.kiosk-page-body .toast{margin:0}
+
+/* Attached PDF on a document take-out */
+.doc-file-link{display:inline-flex;gap:6px;align-items:center;margin-top:6px;padding:3px 7px;border:1px solid var(--line);border-radius:6px;background:var(--panel);font-size:11.5px;color:var(--ink-2)}
+.doc-file-link:hover{border-color:var(--accent);text-decoration:none}
+.doc-file-ico{background:var(--red);color:#fff;border-radius:4px;padding:1px 4px;font-size:9.5px;font-weight:700;letter-spacing:.04em}
+.doc-capture input[type=file]{max-width:260px}

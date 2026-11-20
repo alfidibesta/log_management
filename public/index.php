@@ -1,13 +1,25 @@
 <?php
 require_once __DIR__ . '/../src/helpers.php';
-require_login();
+require_once __DIR__ . '/../src/visitors.php';
+require_once __DIR__ . '/../src/documents.php';
+if (isset($_GET['exit_kiosk'])) {
+    kiosk_exit();
+}
+require_can('view_dashboard');
 
 $pdo = db();
 
-$inToday   = (int) $pdo->query("SELECT COUNT(*) FROM logs WHERE type='in'  AND DATE(logged_at)=CURDATE()")->fetchColumn();
-$outToday  = (int) $pdo->query("SELECT COUNT(*) FROM logs WHERE type='out' AND DATE(logged_at)=CURDATE()")->fetchColumn();
-$pending   = (int) $pdo->query("SELECT COUNT(*) FROM logs WHERE verified=0")->fetchColumn();
-$totalRows = (int) $pdo->query("SELECT COUNT(*) FROM logs")->fetchColumn();
+// one pass over the log for all four headline numbers
+$counts = $pdo->query("SELECT
+        COALESCE(SUM(type = 'in'  AND DATE(logged_at) = CURDATE()), 0) AS in_today,
+        COALESCE(SUM(type = 'out' AND DATE(logged_at) = CURDATE()), 0) AS out_today,
+        COALESCE(SUM(verified = 0), 0) AS pending,
+        COUNT(*) AS total
+      FROM logs")->fetch();
+$inToday   = (int) $counts['in_today'];
+$outToday  = (int) $counts['out_today'];
+$pending   = (int) $counts['pending'];
+$totalRows = (int) $counts['total'];
 
 // totals by category (all time) — no stock, only counts
 $cats = $pdo->query("SELECT cat.name,
@@ -38,6 +50,12 @@ foreach ($days as $d) {
     $max = max($max, $d['in'], $d['out']);
 }
 
+// visitors / contractors currently on site, and documents waiting for a leader
+$onsiteVisitors  = onsite_visitors();
+$onsiteCount     = (int) $pdo->query("SELECT COUNT(*) FROM visitors WHERE time_out IS NULL")->fetchColumn();
+$pendingDocs     = fetch_documents('pending', '', '', '', '', 6);
+$pendingDocCount = (int) $pdo->query("SELECT COUNT(*) FROM documents WHERE status = 'pending'")->fetchColumn();
+
 $recent = $pdo->query("SELECT l.*, c.name AS category_name, u.name AS recorder
                        FROM logs l
                        JOIN categories c ON c.id = l.category_id
@@ -66,6 +84,99 @@ page_header('Dashboard', 'index.php');
     <div class="k">Total records</div>
     <div class="v"><?= number_format($totalRows) ?></div>
     <div class="s"><a href="summary.php">see summary</a></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2>How it works</h2>
+    <span class="filters-summary">Record → verify → approve, in that order</span>
+  </div>
+  <div class="card-body">
+    <?php flow_steps(); ?>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head">
+      <h2>Visitors &amp; contractors on site</h2>
+      <a class="btn btn-ghost btn-sm" href="visitors.php?status=in">Open register</a>
+    </div>
+    <div class="card-body flush">
+      <?php if (!$onsiteVisitors): ?>
+        <div class="empty">Nobody is checked in right now — <a href="visitors.php">check in a visitor</a>.</div>
+      <?php else: ?>
+        <table>
+          <thead>
+            <tr><th>Name</th><th>Type</th><th>Company</th><th>In</th></tr>
+          </thead>
+          <tbody>
+          <?php foreach (array_slice($onsiteVisitors, 0, 6) as $v): ?>
+            <tr>
+              <td>
+                <strong><?= e($v['name']) ?></strong>
+                <?php if ($v['badge_no'] !== ''): ?>
+                  <span class="muted mono">· <?= e($v['badge_no']) ?></span>
+                <?php endif; ?>
+              </td>
+              <td><?= person_type_badge($v['person_type']) ?></td>
+              <td class="muted"><?= $v['company'] !== '' ? e($v['company']) : '—' ?></td>
+              <td class="mono"><?= e(date('d M · H:i', strtotime((string) $v['time_in']))) ?></td>
+            </tr>
+          <?php endforeach; ?>
+          </tbody>
+        </table>
+        <?php if ($onsiteCount > 6): ?>
+          <div class="muted" style="padding:10px 14px;font-size:12px">
+            + <?= number_format($onsiteCount - 6) ?> more on site — <a href="visitors.php?status=in">see the whole register</a>
+          </div>
+        <?php endif; ?>
+      <?php endif; ?>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2>Documents awaiting approval</h2>
+      <a class="btn btn-ghost btn-sm" href="documents.php?status=pending">Open approvals</a>
+    </div>
+    <div class="card-body flush">
+      <?php if (!$pendingDocs): ?>
+        <div class="empty">No document take-outs are waiting for approval.</div>
+      <?php else: ?>
+        <table>
+          <thead>
+            <tr><th>Document</th><th>Personnel</th><th>Taken</th></tr>
+          </thead>
+          <tbody>
+          <?php foreach ($pendingDocs as $d): ?>
+            <tr>
+              <td>
+                <strong><?= e($d['title']) ?></strong>
+                <?php if ($d['doc_no'] !== ''): ?>
+                  <span class="muted mono">· <?= e($d['doc_no']) ?></span>
+                <?php endif; ?>
+                <?php if ((int) $d['photo_bytes'] > 0): ?>
+                  <span class="badge badge-neutral">scan</span>
+                <?php endif; ?>
+              </td>
+              <td>
+                <strong><?= e($d['person']) ?></strong>
+                <?= person_type_badge($d['person_type'] ?? 'personnel') ?>
+              </td>
+              <td class="mono"><?= e(date('d M · H:i', strtotime((string) $d['taken_at']))) ?></td>
+            </tr>
+          <?php endforeach; ?>
+          </tbody>
+        </table>
+        <?php if ($pendingDocCount > count($pendingDocs)): ?>
+          <div class="muted" style="padding:10px 14px;font-size:12px">
+            + <?= number_format($pendingDocCount - count($pendingDocs)) ?> more waiting — <a href="documents.php?status=pending">review them all</a>
+          </div>
+        <?php endif; ?>
+      <?php endif; ?>
+    </div>
   </div>
 </div>
 

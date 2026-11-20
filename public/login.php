@@ -49,14 +49,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title><?= $hasUsers ? 'Sign in' : 'Create admin' ?> · Factory Log</title>
+<title><?= $hasUsers ? 'Sign in' : 'Create admin' ?> · Access Factory Management</title>
 <link rel="stylesheet" href="assets/app.css">
 </head>
 <body>
 <div class="auth">
   <div class="auth-card">
-    <span class="brand-mark">FL</span>
-    <h1>Factory Log</h1>
+    <span class="brand-mark">AFM</span>
+    <h1>Access Factory Management</h1>
     <p class="sub"><?= $hasUsers
         ? 'Sign in to record belongings in / out.'
         : 'First run — create the admin account to open the site.' ?></p>
@@ -93,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="auth-foot">
       <?= $hasUsers
           ? 'Accounts are managed by the administrator.'
-          : 'Roles: <span class="badge badge-accent">admin</span> full control · <span class="badge badge-neutral">personnel</span> input &amp; verify' ?>
+          : 'Roles: <span class="badge badge-accent">admin</span> full control · <span class="badge badge-neutral">leader</span> approves documents · <span class="badge badge-neutral">personnel</span> input &amp; verify' ?>
     </div>
   </div>
 </div>

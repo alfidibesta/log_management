@@ -1,14 +1,19 @@
 <?php
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/render.php';
-require_login();
+require_once __DIR__ . '/../src/visitors.php';
+require_once __DIR__ . '/../src/audit.php';
+require_can('view_input');
 
 $pdo = db();
 
 /* ---------- save: this page exists only for input ---------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    require_can('record');
     verify_csrf();
     $person     = trim((string) ($_POST['person'] ?? ''));
+    $personType = in_array($_POST['person_type'] ?? '', ['personnel', 'visitor', 'contractor'], true)
+        ? (string) $_POST['person_type'] : 'personnel';
     $dept       = trim((string) ($_POST['dept'] ?? ''));
     $categoryId = (int) ($_POST['category_id'] ?? 0);
     $item       = trim((string) ($_POST['item'] ?? ''));
@@ -16,9 +21,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $type       = ($_POST['type'] ?? '') === 'in' ? 'in' : 'out';
     $gate       = trim((string) ($_POST['gate'] ?? '')) ?: 'Main Gate';
     $note       = trim((string) ($_POST['note'] ?? ''));
-    $when       = (string) ($_POST['logged_at'] ?? '');
-    $ts         = $when !== '' ? strtotime($when) : time();
-    $when       = $ts ? date('Y-m-d H:i:s', $ts) : date('Y-m-d H:i:s');
+    /* Stamped by the server — the form has no editable time field. */
+    $when       = date('Y-m-d H:i:s');
 
     $err = [];
     if ($person === '')  { $err[] = 'Personnel name is required.'; }
@@ -29,10 +33,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash(implode(' ', $err), 'err');
     } else {
         $st = $pdo->prepare("INSERT INTO logs
-                (person, dept, category_id, item, qty, type, gate, note, logged_at, user_id)
-                VALUES (?,?,?,?,?,?,?,?,?,?)");
-        $st->execute([$person, $dept, $categoryId, $item, $qty, $type, $gate, $note, $when,
+                (person, person_type, dept, category_id, item, qty, type, gate, note, logged_at, user_id)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)");
+        $st->execute([$person, $personType, $dept, $categoryId, $item, $qty, $type, $gate, $note, $when,
                       current_user()['id'] ?? null]);
+        $newId = (int) $pdo->lastInsertId();
+        audit_record('log', $newId, 'create', [], audit_snapshot('log', $newId) ?? []);
         flash(ucfirst($type) . " recorded for {$person} — pending verification.");
         header('Location: input.php');
         exit;
@@ -45,11 +51,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $categories = $pdo->query("SELECT id, name FROM categories WHERE active = 1 ORDER BY name")->fetchAll();
 $people     = $pdo->query("SELECT DISTINCT person FROM logs ORDER BY person LIMIT 60")->fetchAll(PDO::FETCH_COLUMN);
 $items      = $pdo->query("SELECT DISTINCT item FROM logs ORDER BY item LIMIT 60")->fetchAll(PDO::FETCH_COLUMN);
+$onsite     = onsite_visitors();
+$people     = array_values(array_unique(array_merge($people, array_column($onsite, 'name'))));
+$companies  = array_values(array_unique(array_filter(array_column($onsite, 'company'))));
 $person     = trim((string) ($_GET['person'] ?? ''));
+$preType    = in_array($_GET['type'] ?? '', ['personnel', 'visitor', 'contractor'], true) ? (string) $_GET['type'] : 'personnel';
 $open       = fetch_open_records($person);
 
-page_header('Input Gate Pass', 'input.php');
+page_header('Record entry', 'input.php');
 ?>
+<div class="card">
+  <div class="card-body"><?php flow_steps('record'); ?></div>
+</div>
+<?php if (can('record')): ?>
 <div class="card">
   <div class="card-head">
     <h2>Record personnel passing the main gate</h2>
@@ -61,17 +75,27 @@ page_header('Input Gate Pass', 'input.php');
 
       <div class="grid grid-form">
         <label class="field grow">Personnel name *
-          <input type="text" name="person" list="people" required autofocus placeholder="Full name">
+          <input type="text" name="person" list="people" required autofocus placeholder="Full name"
+                 value="<?= e($person) ?>">
           <datalist id="people">
             <?php foreach ($people as $p): ?><option><?= e($p) ?></option><?php endforeach; ?>
           </datalist>
+        </label>
+
+        <label class="field">Person type
+          <select name="person_type">
+            <?php foreach (person_types() as $key => $label): ?>
+              <option value="<?= e($key) ?>" <?= $preType === $key ? 'selected' : '' ?>><?= e($label) ?></option>
+            <?php endforeach; ?>
+          </select>
         </label>
 
         <label class="field">Department / company
           <input type="text" name="dept" list="depts" placeholder="e.g. Maintenance">
           <datalist id="depts">
             <option>Production</option><option>Maintenance</option><option>Warehouse</option>
-            <option>Logistics</option><option>Quality Control</option><option>Visitor / Vendor</option>
+            <option>Logistics</option><option>Quality Control</option>
+            <?php foreach ($companies as $c): ?><option><?= e($c) ?></option><?php endforeach; ?>
           </datalist>
         </label>
 
@@ -111,7 +135,7 @@ page_header('Input Gate Pass', 'input.php');
         </label>
 
         <label class="field">Date &amp; time
-          <input type="datetime-local" name="logged_at" value="<?= date('Y-m-d\TH:i') ?>">
+          <div class="field-auto"><?= date('d M Y, H:i') ?> <span class="muted">· automatic</span></div>
         </label>
       </div>
 
@@ -126,10 +150,20 @@ page_header('Input Gate Pass', 'input.php');
 
       <p class="hint">Every crossing is recorded as <strong>pending</strong> and must be checked against
         the opposite record on the <a href="verify.php">Verify</a> page when the person exits or returns.
-        The panel below stays in sync with that queue.</p>
+        The panel below stays in sync with that queue.
+        <?php if ($onsite): ?><br>Visitors and contractor workers on site:
+          <?= (int) count($onsite) ?> — check them in / out on <a href="visitors.php">Visitors</a>.<?php endif; ?></p>
     </form>
   </div>
 </div>
+<?php else: ?>
+<div class="card">
+  <div class="card-body">
+    <p class="muted" style="margin:0">Your role can open this page but not record crossings. '
+      Ask an admin for <strong>Record belongings IN / OUT</strong> on Users &amp; roles.</p>
+  </div>
+</div>
+<?php endif; ?>
 
 <div class="card">
   <div class="card-head">

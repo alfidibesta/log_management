@@ -2,7 +2,8 @@
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/render.php';
 require_once __DIR__ . '/../src/excel.php';
-require_admin(); // the Data Log (incl. Excel import/export) is admin territory
+require_once __DIR__ . '/../src/audit.php';
+require_can('view_data'); // reading the Data Log; changing it needs manage_data below
 
 $pdo = db();
 
@@ -13,6 +14,7 @@ $IMPORT_HEADERS = ['Date', 'Time', 'Person', 'Department', 'Category', 'Item', '
 
 /* ---------- import an Excel file ---------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'import') {
+    require_can('manage_data');
     verify_csrf();
     $file = $_FILES['file'] ?? null;
     if (!$file || $file['error'] !== UPLOAD_ERR_OK) {
@@ -119,6 +121,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'impor
     }
     $pdo->commit();
 
+    audit_record('log', null, 'import', [], [
+        'Rows imported' => (string) $imported,
+        'Rows skipped'  => (string) count($errors),
+        'File'          => (string) ($file['name'] ?? ''),
+    ], '', 'Data Log · Excel import');
+
     $msg = "Imported {$imported} row" . ($imported === 1 ? '' : 's') . '.';
     if ($errors) {
         $shown = array_slice($errors, 0, 4);
@@ -136,7 +144,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'impor
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
     verify_csrf();
     require_admin();
-    $pdo->prepare("DELETE FROM logs WHERE id = ?")->execute([(int) ($_POST['id'] ?? 0)]);
+    $id     = (int) ($_POST['id'] ?? 0);
+    $before = audit_snapshot('log', $id);
+    $pdo->prepare("DELETE FROM logs WHERE id = ?")->execute([$id]);
+    audit_record('log', $id, 'delete', $before ?? [], [], 'Entry deleted from the Data Log');
     flash('Entry deleted.');
     header('Location: ' . after_redirect_target());
     exit;
@@ -149,10 +160,13 @@ $to     = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['to'] ?? '') ? $_GET['to'] :
 $status = ($_GET['status'] ?? '') === '1' ? '1' : (($_GET['status'] ?? '') === '0' ? '0' : '');
 $catId  = (int) ($_GET['category_id'] ?? 0);
 $q      = trim((string) ($_GET['q'] ?? ''));
+$personType = in_array($_GET['person_type'] ?? '', ['personnel', 'visitor', 'contractor'], true)
+    ? (string) $_GET['person_type'] : '';
 
 /* ---------- export to Excel ---------- */
 if (($_GET['do'] ?? '') === 'export') {
-    [$sql, $args] = log_filter_sql($type, $from, $to, $status, $catId, $q);
+    require_can('manage_data');
+    [$sql, $args] = log_filter_sql($type, $from, $to, $status, $catId, $q, $personType);
     $sql .= " ORDER BY l.logged_at, l.id LIMIT 20000";
     $st = $pdo->prepare($sql);
     $st->execute($args);
@@ -163,6 +177,7 @@ if (($_GET['do'] ?? '') === 'export') {
             date('Y-m-d', strtotime($r['logged_at'])),
             date('H:i', strtotime($r['logged_at'])),
             $r['person'],
+            person_type_label($r['person_type']),
             $r['dept'],
             $r['category_name'],
             $r['item'],
@@ -175,7 +190,7 @@ if (($_GET['do'] ?? '') === 'export') {
         ];
     }
     xlsx_export(
-        ['Date', 'Time', 'Person', 'Department', 'Category', 'Item', 'Qty', 'Direction', 'Note', 'Gate', 'Status', 'Verified by', 'Remark'],
+        ['Date', 'Time', 'Person', 'Type', 'Department', 'Category', 'Item', 'Qty', 'Direction', 'Note', 'Gate', 'Status', 'Verified by', 'Remark'],
         $rows,
         'gate-pass-log-' . date('Y-m-d') . '.xlsx',
         'Gate Pass Log'
@@ -183,7 +198,7 @@ if (($_GET['do'] ?? '') === 'export') {
 }
 
 /* ---------- table data ---------- */
-[$sql, $args] = log_filter_sql($type, $from, $to, $status, $catId, $q);
+[$sql, $args] = log_filter_sql($type, $from, $to, $status, $catId, $q, $personType);
 $sql .= " ORDER BY l.logged_at DESC, l.id DESC LIMIT 300";
 $st = $pdo->prepare($sql);
 $st->execute($args);
@@ -191,7 +206,9 @@ $logs = $st->fetchAll();
 
 $categories = $pdo->query("SELECT id, name FROM categories ORDER BY name")->fetchAll();
 $pending    = (int) $pdo->query("SELECT COUNT(*) FROM logs WHERE verified = 0")->fetchColumn();
-$filtered   = ($type !== '' || $from !== '' || $to !== '' || $status !== '' || $catId > 0 || $q !== '');
+$filtered   = ($type !== '' || $from !== '' || $to !== '' || $status !== '' || $catId > 0 || $q !== '' || $personType !== '');
+$imports    = db()->query("SELECT * FROM audit_log WHERE entity = 'log' AND action = 'import'
+                           ORDER BY created_at DESC, id DESC LIMIT 3")->fetchAll();
 
 page_header('Data Log', 'log.php');
 ?>
@@ -207,7 +224,7 @@ page_header('Data Log', 'log.php');
     <h2>Import from Excel (.xlsx)</h2>
     <a class="btn btn-ghost btn-sm" href="?do=export&<?= e(http_build_query(array_filter([
         'type' => $type, 'from' => $from, 'to' => $to, 'status' => $status,
-        'category_id' => $catId ?: null, 'q' => $q,
+        'category_id' => $catId ?: null, 'q' => $q, 'person_type' => $personType,
     ]))) ?>">⬇ Export current filter</a>
   </div>
   <div class="card-body">
@@ -226,6 +243,16 @@ page_header('Data Log', 'log.php');
       <span class="kbd">Qty</span> <span class="kbd">Direction</span> <span class="kbd">Note</span>
       <span class="kbd">Gate</span> — exported rows keep their filters; imported rows are marked verified.
     </p>
+    <?php if ($imports): ?>
+      <p class="hint" style="margin-top:8px">
+        Recent imports:
+        <?php foreach ($imports as $i => $im): ?>
+          <?= $i > 0 ? ' · ' : '' ?>
+          <?= e(date('d M H:i', strtotime((string) $im['created_at']))) ?>
+          by <?= e($im['user_name'] !== '' ? $im['user_name'] : ($im['username'] !== '' ? $im['username'] : 'unknown')) ?>
+        <?php endforeach; ?>
+      </p>
+    <?php endif; ?>
   </div>
 </div>
 
@@ -244,6 +271,14 @@ page_header('Data Log', 'log.php');
         <option value="">All</option>
         <?php foreach ($categories as $c): ?>
           <option value="<?= (int) $c['id'] ?>" <?= $catId === (int) $c['id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </label>
+    <label class="field">Person type
+      <select name="person_type" onchange="this.form.submit()">
+        <option value="">All</option>
+        <?php foreach (person_types() as $key => $label): ?>
+          <option value="<?= e($key) ?>" <?= $personType === $key ? 'selected' : '' ?>><?= e($label) ?></option>
         <?php endforeach; ?>
       </select>
     </label>
@@ -271,7 +306,7 @@ page_header('Data Log', 'log.php');
 
   <div class="card-body flush" data-live="fragment.php?part=log&<?= e(http_build_query(array_filter([
       'type' => $type, 'from' => $from, 'to' => $to, 'status' => $status,
-      'category_id' => $catId ?: null, 'q' => $q,
+      'category_id' => $catId ?: null, 'q' => $q, 'person_type' => $personType,
   ]))) ?>">
     <?php render_log_table($logs, is_admin()); ?>
   </div>

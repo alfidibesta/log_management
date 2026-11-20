@@ -1,10 +1,11 @@
 <?php
 require_once __DIR__ . '/../src/helpers.php';
-require_admin();
+require_can('view_data');
 
 $pdo = db();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    require_can('manage_data');
     verify_csrf();
     $action = $_POST['action'] ?? '';
 

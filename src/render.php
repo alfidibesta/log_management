@@ -11,7 +11,7 @@ declare(strict_types=1);
 /* ---------------------------------------------------------------- queries */
 
 /** @return array{0:string,1:array} sql + args for the data log */
-function log_filter_sql(string $type, string $from, string $to, string $status, int $catId, string $q): array
+function log_filter_sql(string $type, string $from, string $to, string $status, int $catId, string $q, string $personType = ''): array
 {
     $sql  = "SELECT l.*, c.name AS category_name,
                     u.name AS recorder, v.name AS verifier
@@ -26,6 +26,10 @@ function log_filter_sql(string $type, string $from, string $to, string $status, 
     if ($to !== '')     { $sql .= " AND l.logged_at <= ?"; $args[] = $to . ' 23:59:59'; }
     if ($status !== '') { $sql .= " AND l.verified = ?"; $args[] = (int) $status; }
     if ($catId > 0)     { $sql .= " AND l.category_id = ?"; $args[] = $catId; }
+    if (in_array($personType, ['personnel', 'visitor', 'contractor'], true)) {
+        $sql .= " AND l.person_type = ?";
+        $args[] = $personType;
+    }
     if ($q !== '') {
         $sql .= " AND (l.person LIKE ? OR l.item LIKE ? OR l.dept LIKE ?)";
         $like = '%' . $q . '%';
@@ -117,9 +121,13 @@ function render_log_table(array $logs, bool $admin): void
       <tbody>
       <?php foreach ($logs as $r): ?>
         <tr>
-          <td class="mono"><?= e(date('Y-m-d H:i', strtotime($r['logged_at']))) ?></td>
+          <td class="mono"><a href="history.php?entity=log&amp;id=<?= (int) $r['id'] ?>"
+                 title="Open this entry and its audit trail"><?= e(date('Y-m-d H:i', strtotime($r['logged_at']))) ?></a></td>
           <td>
             <strong><?= e($r['person']) ?></strong>
+            <?php if (($r['person_type'] ?? 'personnel') !== 'personnel'): ?>
+              <?= person_type_badge($r['person_type']) ?>
+            <?php endif; ?>
             <span class="muted"><?= $r['dept'] !== '' ? '· ' . e($r['dept']) : '' ?></span>
           </td>
           <td><span class="badge badge-neutral"><?= e($r['category_name']) ?></span></td>
@@ -181,6 +189,8 @@ function render_verify_list(array $rows, bool $canVerify): void
         $dept = $list[0]['dept'];
         echo '<div class="vgroup">';
         echo '<div class="vgroup-head"><strong>' . e($person) . '</strong>'
+           . (($list[0]['person_type'] ?? 'personnel') !== 'personnel'
+                ? person_type_badge($list[0]['person_type']) : '')
            . '<span class="muted">' . e($dept) . '</span>'
            . '<span class="badge badge-out">' . count($list) . ' pending</span></div>';
 

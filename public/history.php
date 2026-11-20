@@ -81,7 +81,8 @@ page_header($title, '');
   <div class="card-head">
     <h2>Audit trail</h2>
     <span class="filters-summary">
-      <?= count($trail) ?> change<?= count($trail) === 1 ? '' : 's' ?> — this history is never edited or deleted
+      <?= count($trail) ?> change<?= count($trail) === 1 ? '' : 's' ?> — this history is never edited or deleted<?php
+        if (count($trail) >= 300) { echo ' (showing the first 300)'; } ?>
     </span>
   </div>
   <div class="card-body flush">

@@ -132,10 +132,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                               WHERE photo_bytes > 0 AND taken_at < ? LIMIT 200");
         $st->execute([$cut]);
         $removed = (int) $st->rowCount();
-        audit_record('document', null, 'purge_photos', [], [
-            'Scans removed' => (string) $removed,
-            'Older than'    => $cut,
-        ], (string) ($_POST['reason'] ?? ''), 'Documents · old scans');
+        if ($removed > 0) {
+            audit_record('document', null, 'purge_photos', [], [
+                'Scans removed' => (string) $removed,
+                'Older than'    => $cut,
+            ], (string) ($_POST['reason'] ?? ''), 'Documents · old scans');
+        }
         flash($removed . ' scan(s) older than ' . DOC_PHOTO_KEEP_DAYS
             . ' days removed — the document records stay. Run it again if more remain.');
         header('Location: ' . doc_return_target());

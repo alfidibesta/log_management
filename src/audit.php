@@ -239,10 +239,13 @@ function audit_record(
     $flags    = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
 
     try {
+        // NOW() rather than PHP's clock: the rest of the schema stamps logged_at,
+        // verified_at and approved_at the same way, so the trail always lines up
+        // with the record even when PHP and MySQL run in different timezones.
         db()->prepare("INSERT INTO audit_log
                 (entity, entity_id, target, action, reason, before_json, after_json,
                  user_id, username, user_name, ip, created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,NOW())")
             ->execute([
                 $entity,
                 $entityId !== null && $entityId > 0 ? $entityId : null,
@@ -255,7 +258,6 @@ function audit_record(
                 (string) ($user['username'] ?? ''),
                 (string) ($user['name'] ?? ''),
                 mb_substr((string) ($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45),
-                date('Y-m-d H:i:s'),
             ]);
     } catch (Throwable $e) {
         // Recording history must never break the action the user asked for.

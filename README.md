@@ -300,11 +300,17 @@ The reader/writer is dependency-free (`src/excel.php`, ZipArchive + XML).
 
 Every change to a record is written to the `audit_log` table and can be read
 from the record itself: click a **date/time** in the Data Log or Document Log,
-or a **visitor's name**, to open `history.php`. It shows the record as it stands
-and, for each change, **who** made it (name, username, IP), **when**, the
-**action** (recorded, verified, verification cleared, approved, rejected,
-checked in/out, deleted), the **reason** typed at that moment, and the fields
-with their **before → after** values.
+or a **visitor's name**, to open `history.php`. It shows the record as it stands,
+then its whole trail one block per change: the **action** (recorded, verified,
+verification cleared, approved, rejected, checked in/out, deleted), **who** made
+it (name, username, IP), **when**, the **reason** typed at that moment, and every
+field that changed as `label — before → after`. In a diff the old value is
+struck through in red, the new one is green, and a dash means "nothing there" —
+so a cleared field is visible as `Partially returned → —` rather than a blank.
+
+- **Who may read it** — the trail follows the same capabilities as the record:
+  admins see every history, gate staff see log and visitor history, and account
+  history is admin-only (`history.php` answers 403 otherwise).
 
 - **Verify** — the verifier's remark becomes the reason; the trail shows the
   status, verifier, time and remark as they were before and after. Undoing a

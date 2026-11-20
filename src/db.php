@@ -182,6 +182,30 @@ function ensure_schema(PDO $pdo): void
         PRIMARY KEY (k)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
+    // Audit trail (src/audit.php): who verified / corrected / approved or
+    // deleted a record, with the changed values before and after, a reason and
+    // a timestamp. Rows are insert-only, so a gate entry stays defensible as
+    // evidence. The operator's name is copied in, so history survives a
+    // rename, a role change or a disabled account.
+    $pdo->exec("CREATE TABLE IF NOT EXISTS audit_log (
+        id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        entity      VARCHAR(24)  NOT NULL,
+        entity_id   INT UNSIGNED NULL,
+        target      VARCHAR(160) NOT NULL DEFAULT '',
+        action      VARCHAR(24)  NOT NULL,
+        reason      VARCHAR(255) NOT NULL DEFAULT '',
+        before_json TEXT         NULL,
+        after_json  TEXT         NULL,
+        user_id     INT UNSIGNED NULL,
+        username    VARCHAR(64)  NOT NULL DEFAULT '',
+        user_name   VARCHAR(120) NOT NULL DEFAULT '',
+        ip          VARCHAR(45)  NOT NULL DEFAULT '',
+        created_at  DATETIME     NOT NULL,
+        PRIMARY KEY (id),
+        KEY idx_audit_entity (entity, entity_id, created_at),
+        KEY idx_audit_created (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
     seed_sample_data($pdo);
 }
 

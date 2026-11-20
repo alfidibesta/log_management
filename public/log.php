@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/render.php';
 require_once __DIR__ . '/../src/excel.php';
+require_once __DIR__ . '/../src/audit.php';
 require_can('manage_data'); // the Data Log (incl. Excel import/export) is admin territory
 
 $pdo = db();
@@ -119,6 +120,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'impor
     }
     $pdo->commit();
 
+    audit_record('log', null, 'import', [], [
+        'Rows imported' => (string) $imported,
+        'Rows skipped'  => (string) count($errors),
+        'File'          => (string) ($file['name'] ?? ''),
+    ], '', 'Data Log · Excel import');
+
     $msg = "Imported {$imported} row" . ($imported === 1 ? '' : 's') . '.';
     if ($errors) {
         $shown = array_slice($errors, 0, 4);
@@ -136,7 +143,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'impor
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
     verify_csrf();
     require_admin();
-    $pdo->prepare("DELETE FROM logs WHERE id = ?")->execute([(int) ($_POST['id'] ?? 0)]);
+    $id     = (int) ($_POST['id'] ?? 0);
+    $before = audit_snapshot('log', $id);
+    $pdo->prepare("DELETE FROM logs WHERE id = ?")->execute([$id]);
+    audit_record('log', $id, 'delete', $before ?? [], [], 'Entry deleted from the Data Log');
     flash('Entry deleted.');
     header('Location: ' . after_redirect_target());
     exit;
@@ -195,6 +205,8 @@ $logs = $st->fetchAll();
 $categories = $pdo->query("SELECT id, name FROM categories ORDER BY name")->fetchAll();
 $pending    = (int) $pdo->query("SELECT COUNT(*) FROM logs WHERE verified = 0")->fetchColumn();
 $filtered   = ($type !== '' || $from !== '' || $to !== '' || $status !== '' || $catId > 0 || $q !== '' || $personType !== '');
+$imports    = db()->query("SELECT * FROM audit_log WHERE entity = 'log' AND action = 'import'
+                           ORDER BY created_at DESC, id DESC LIMIT 3")->fetchAll();
 
 page_header('Data Log', 'log.php');
 ?>
@@ -229,6 +241,16 @@ page_header('Data Log', 'log.php');
       <span class="kbd">Qty</span> <span class="kbd">Direction</span> <span class="kbd">Note</span>
       <span class="kbd">Gate</span> — exported rows keep their filters; imported rows are marked verified.
     </p>
+    <?php if ($imports): ?>
+      <p class="hint" style="margin-top:8px">
+        Recent imports:
+        <?php foreach ($imports as $i => $im): ?>
+          <?= $i > 0 ? ' · ' : '' ?>
+          <?= e(date('d M H:i', strtotime((string) $im['created_at']))) ?>
+          by <?= e($im['user_name'] !== '' ? $im['user_name'] : ($im['username'] !== '' ? $im['username'] : 'unknown')) ?>
+        <?php endforeach; ?>
+      </p>
+    <?php endif; ?>
   </div>
 </div>
 

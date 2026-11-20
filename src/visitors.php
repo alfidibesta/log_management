@@ -79,7 +79,8 @@ function render_visitor_list(array $rows, string $ret = ''): void
       <?php foreach ($rows as $v): $id = (int) $v['id']; $onsite = $v['time_out'] === null; ?>
         <tr>
           <td>
-            <strong><?= e($v['name']) ?></strong>
+            <strong><a href="history.php?entity=visitor&amp;id=<?= $id ?>"
+                       title="Open this visitor and its audit trail"><?= e($v['name']) ?></a></strong>
             <?php if ($v['badge_no'] !== ''): ?>
               <span class="badge badge-neutral"><?= e($v['badge_no']) ?></span>
             <?php endif; ?>

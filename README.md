@@ -296,6 +296,37 @@ reload. Fragment parts: `open` (person's open records), `verify` (queue),
 
 The reader/writer is dependency-free (`src/excel.php`, ZipArchive + XML).
 
+## Audit trail
+
+Every change to a record is written to the `audit_log` table and can be read
+from the record itself: click a **date/time** in the Data Log or Document Log,
+or a **visitor's name**, to open `history.php`. It shows the record as it stands
+and, for each change, **who** made it (name, username, IP), **when**, the
+**action** (recorded, verified, verification cleared, approved, rejected,
+checked in/out, deleted), the **reason** typed at that moment, and the fields
+with their **before → after** values.
+
+- **Verify** — the verifier's remark becomes the reason; the trail shows the
+  status, verifier, time and remark as they were before and after. Undoing a
+  verification is recorded too.
+- **Documents out** — recording, approving, rejecting, undoing an approval,
+  deleting and removing old scans are recorded; the approval note becomes the
+  reason.
+- **Visitors** — check-in, check-out, undoing a check-out and deleting a visitor
+  are recorded, with the purpose of the visit as the reason at check-in.
+- **Accounts & capabilities** — creating a user, changing a role, disabling an
+  account, saving the capability matrix (with an optional *Reason* field) and
+  restoring the defaults are recorded. The bottom of *Users & roles* lists the
+  most recent 30 of these.
+- **Deletions keep their history** — the before-values and the operator are
+  stored, so a deleted entry's page still explains what was removed and by whom.
+
+Audit rows are insert-only: the app never updates or deletes them. The
+operator's name and username are copied into the row, so renaming or disabling
+an account does not rewrite past history. Excel imports are recorded once as a
+summary (rows imported, rows skipped, file name) and listed on the Data Log
+page.
+
 ## First run
 
 Open the site: if no accounts exist, the login page becomes a

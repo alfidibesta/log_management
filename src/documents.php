@@ -284,7 +284,8 @@ function render_document_list(array $rows, bool $canApprove, string $ret = '', b
               <span class="doc-photo doc-photo-none">no photo</span>
             <?php endif; ?>
           </td>
-          <td class="mono"><?= e(date('d M · H:i', strtotime($r['taken_at']))) ?></td>
+          <td class="mono"><a href="history.php?entity=document&amp;id=<?= $id ?>"
+                 title="Open this take-out and its audit trail"><?= e(date('d M · H:i', strtotime($r['taken_at']))) ?></a></td>
           <td>
             <strong><?= e($r['person']) ?></strong>
             <?= person_type_badge($r['person_type'] ?? 'personnel') ?>

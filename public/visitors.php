@@ -9,6 +9,7 @@
  */
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/visitors.php';
+require_once __DIR__ . '/../src/audit.php';
 require_can('record');
 
 $pdo = db();
@@ -54,6 +55,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     (name, person_type, company, id_no, phone, host, purpose, badge_no, time_in, note, user_id)
                     VALUES (?,?,?,?,?,?,?,?,?,?,?)");
             $st->execute([$name, $type, $company, $idNo, $phone, $host, $purpose, $badge, $when, $note, $uid ?: null]);
+            $newId = (int) $pdo->lastInsertId();
+            audit_record('visitor', $newId, 'checkin', [], audit_snapshot('visitor', $newId) ?? [], $purpose);
             flash(person_type_label($type) . ' ' . $name . ' checked in at '
                 . date('H:i', strtotime($when)) . ' — log their belongings and documents while they are on site.');
         }
@@ -62,15 +65,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($action === 'checkout') {
+        $id     = (int) ($_POST['id'] ?? 0);
+        $before = audit_snapshot('visitor', $id);
         $pdo->prepare("UPDATE visitors SET time_out = NOW() WHERE id = ? AND time_out IS NULL")
-            ->execute([(int) ($_POST['id'] ?? 0)]);
+            ->execute([$id]);
+        audit_record('visitor', $id, 'checkout', $before ?? [], audit_snapshot('visitor', $id) ?? []);
         flash('Visitor checked out.');
         header('Location: ' . visitor_return_target());
         exit;
     }
 
     if ($action === 'back') {
-        $pdo->prepare("UPDATE visitors SET time_out = NULL WHERE id = ?")->execute([(int) ($_POST['id'] ?? 0)]);
+        $id     = (int) ($_POST['id'] ?? 0);
+        $before = audit_snapshot('visitor', $id);
+        $pdo->prepare("UPDATE visitors SET time_out = NULL WHERE id = ?")->execute([$id]);
+        audit_record('visitor', $id, 'back', $before ?? [], audit_snapshot('visitor', $id) ?? []);
         flash('Check-out undone — the visitor is on site again.');
         header('Location: ' . visitor_return_target());
         exit;
@@ -78,7 +87,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'delete') {
         require_admin();
-        $pdo->prepare("DELETE FROM visitors WHERE id = ?")->execute([(int) ($_POST['id'] ?? 0)]);
+        $id     = (int) ($_POST['id'] ?? 0);
+        $before = audit_snapshot('visitor', $id);
+        $pdo->prepare("DELETE FROM visitors WHERE id = ?")->execute([$id]);
+        audit_record('visitor', $id, 'delete', $before ?? [], [], 'Visitor record deleted');
         flash('Visitor record deleted.');
         header('Location: ' . visitor_return_target());
         exit;

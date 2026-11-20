@@ -61,11 +61,7 @@ function role_capabilities(): array
         return $caps;
     }
 
-    $caps = [
-        'admin'     => ['record', 'verify', 'approve', 'manage_data', 'manage_users'],
-        'leader'    => ['record', 'verify', 'approve'],
-        'personnel' => ['record', 'verify'],
-    ];
+    $caps = role_capability_defaults();
 
     $saved = json_decode(setting_get('role_caps'), true);
     if (is_array($saved)) {
@@ -78,6 +74,35 @@ function role_capabilities(): array
     }
 
     return $caps;
+}
+
+/** @return array<string, string[]> the shipped capability set, before overrides */
+function role_capability_defaults(): array
+{
+    return [
+        'admin'     => ['record', 'verify', 'approve', 'manage_data', 'manage_users'],
+        'leader'    => ['record', 'verify', 'approve'],
+        'personnel' => ['record', 'verify'],
+    ];
+}
+
+/**
+ * Capability set as readable lines, for the audit trail's before/after view.
+ *
+ * @param array<string, string[]> $caps
+ * @return array<string, string>
+ */
+function caps_snapshot(array $caps): array
+{
+    $out = [];
+    foreach (['leader', 'personnel'] as $role) {
+        $labels = [];
+        foreach ($caps[$role] ?? [] as $cap) {
+            $labels[] = capability_labels()[$cap] ?? $cap;
+        }
+        $out[role_label($role) . ' capabilities'] = $labels ? implode(', ', $labels) : 'none';
+    }
+    return $out;
 }
 
 /** Small key/value store used for the editable role permissions. */

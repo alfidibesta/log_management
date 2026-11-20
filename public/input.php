@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/render.php';
 require_once __DIR__ . '/../src/visitors.php';
+require_once __DIR__ . '/../src/audit.php';
 require_can('record');
 
 $pdo = db();
@@ -35,6 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 VALUES (?,?,?,?,?,?,?,?,?,?,?)");
         $st->execute([$person, $personType, $dept, $categoryId, $item, $qty, $type, $gate, $note, $when,
                       current_user()['id'] ?? null]);
+        $newId = (int) $pdo->lastInsertId();
+        audit_record('log', $newId, 'create', [], audit_snapshot('log', $newId) ?? []);
         flash(ucfirst($type) . " recorded for {$person} — pending verification.");
         header('Location: input.php');
         exit;

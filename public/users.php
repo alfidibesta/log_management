@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../src/helpers.php';
+require_once __DIR__ . '/../src/audit.php';
 require_can('manage_users');
 
 $pdo = db();
@@ -29,6 +30,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $st = $pdo->prepare("INSERT INTO users (username, name, password_hash, role) VALUES (?,?,?,?)");
                 $st->execute([$username, $name, password_hash($pass, PASSWORD_DEFAULT), $role]);
+                $newId = (int) $pdo->lastInsertId();
+                audit_record('user', $newId, 'user_create', [], audit_snapshot('user', $newId) ?? [],
+                    '', 'User ' . $username);
                 flash("User {$username} created.");
             } catch (PDOException $e) {
                 flash('That username is already taken.', 'err');
@@ -48,14 +52,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
+        $before = caps_snapshot(role_capabilities());
         setting_set('role_caps', json_encode($caps));
+        audit_record('role_caps', null, 'permissions', $before, caps_snapshot($caps),
+            (string) ($_POST['reason'] ?? ''), 'Role capabilities');
         flash('Role permissions saved — they apply on the next request.');
         header('Location: users.php');
         exit;
     }
 
     if ($action === 'permissions_reset') {
+        $before = caps_snapshot(role_capabilities());
         $pdo->prepare("DELETE FROM settings WHERE k = 'role_caps'")->execute();
+        audit_record('role_caps', null, 'permissions_reset', $before,
+            caps_snapshot(role_capability_defaults()), (string) ($_POST['reason'] ?? ''),
+            'Role capabilities');
         flash('Role permissions restored to the defaults.');
         header('Location: users.php');
         exit;
@@ -76,7 +87,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   && $role !== 'admin' && active_admin_count($pdo) <= 1) {
             flash('This is the last active admin — make another account an admin first.', 'err');
         } else {
+            $before = audit_snapshot('user', $id);
             $pdo->prepare("UPDATE users SET role = ? WHERE id = ?")->execute([$role, $id]);
+            audit_record('user', $id, 'role', $before ?? [], audit_snapshot('user', $id) ?? []);
             flash('Role updated to ' . role_label($role) . '.');
         }
         header('Location: users.php');
@@ -96,7 +109,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($target['role'] === 'admin' && (int) $target['active'] === 1 && active_admin_count($pdo) <= 1) {
             flash('This is the last active admin — make another account an admin first.', 'err');
         } else {
+            $before = audit_snapshot('user', $id);
             $pdo->prepare("UPDATE users SET active = 1 - active WHERE id = ?")->execute([$id]);
+            audit_record('user', $id, 'toggle', $before ?? [], audit_snapshot('user', $id) ?? []);
             flash('Account status changed.');
         }
         header('Location: users.php');
@@ -107,6 +122,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $users = $pdo->query("SELECT u.*,
         (SELECT COUNT(*) FROM logs l WHERE l.user_id = u.id) AS entries
       FROM users u ORDER BY u.role DESC, u.username")->fetchAll();
+
+$recentAudit = audit_feed(['user', 'role_caps'], 30);
 
 page_header('Users & roles', 'users.php');
 ?>
@@ -173,10 +190,14 @@ page_header('Users & roles', 'users.php');
         </tbody>
       </table>
       <div class="perm-actions">
-        <span class="filters-summary" style="flex:1">
+        <span class="filters-summary" style="flex:1;min-width:200px">
           Admin always keeps full control, so these two roles can be changed freely.
           The last active admin still cannot be demoted or disabled.
         </span>
+        <label class="field" style="flex:1;min-width:200px">
+          Reason <span class="muted">(optional — kept in the audit trail)</span>
+          <input type="text" name="reason" maxlength="255" placeholder="e.g. Gate officers now verify documents">
+        </label>
         <button class="btn btn-ghost btn-sm" type="submit" name="action" value="permissions_reset"
                 onclick="return confirm('Restore the default permissions for leader and personnel?')">
           Restore defaults
@@ -255,6 +276,16 @@ page_header('Users & roles', 'users.php');
       <?php endforeach; ?>
       </tbody>
     </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2>Audit trail — accounts &amp; capabilities</h2>
+    <span class="filters-summary">Every account and role change, with who made it and what changed</span>
+  </div>
+  <div class="card-body flush">
+    <?php render_audit_trail($recentAudit, 'No account or capability changes yet.', true); ?>
   </div>
 </div>
 <?php page_footer(); ?>

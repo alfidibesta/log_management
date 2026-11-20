@@ -7,6 +7,7 @@
  */
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/render.php';
+require_once __DIR__ . '/../src/audit.php';
 require_can('verify');
 
 $pdo = db();
@@ -14,17 +15,22 @@ $pdo = db();
 /* ---------- verify / unverify ---------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['verify', 'unverify'], true)) {
     verify_csrf();
-    $id = (int) ($_POST['id'] ?? 0);
+    $id     = (int) ($_POST['id'] ?? 0);
+    // Snapshot first: the audit trail shows the values as they were.
+    $before = audit_snapshot('log', $id);
     if (($_POST['action']) === 'verify') {
         $remark = mb_substr(trim((string) ($_POST['remark'] ?? '')), 0, 255);
         $pdo->prepare("UPDATE logs SET verified = 1, verified_by = ?, verified_at = NOW(), verify_remark = ? WHERE id = ?")
             ->execute([current_user()['id'] ?? null, $remark, $id]);
+        audit_record('log', $id, 'verify', $before ?? [], audit_snapshot('log', $id) ?? [], $remark);
         flash($remark !== ''
             ? 'Record verified with remark: “' . $remark . '”.'
             : 'Record checked against the crossing record and verified.');
     } else {
         $pdo->prepare("UPDATE logs SET verified = 0, verified_by = NULL, verified_at = NULL, verify_remark = '' WHERE id = ?")
             ->execute([$id]);
+        audit_record('log', $id, 'unverify', $before ?? [], audit_snapshot('log', $id) ?? [],
+            (string) ($_POST['reason'] ?? ''));
         flash('Verification cleared.');
     }
     header('Location: ' . verify_return_target());
@@ -35,7 +41,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
     verify_csrf();
     require_admin();
-    $pdo->prepare("DELETE FROM logs WHERE id = ?")->execute([(int) ($_POST['id'] ?? 0)]);
+    $id     = (int) ($_POST['id'] ?? 0);
+    $before = audit_snapshot('log', $id);
+    $pdo->prepare("DELETE FROM logs WHERE id = ?")->execute([$id]);
+    audit_record('log', $id, 'delete', $before ?? [], [], 'Entry deleted from the verify queue');
     flash('Entry deleted.');
     header('Location: ' . verify_return_target());
     exit;

@@ -121,7 +121,8 @@ function render_log_table(array $logs, bool $admin): void
       <tbody>
       <?php foreach ($logs as $r): ?>
         <tr>
-          <td class="mono"><?= e(date('Y-m-d H:i', strtotime($r['logged_at']))) ?></td>
+          <td class="mono"><a href="history.php?entity=log&amp;id=<?= (int) $r['id'] ?>"
+                 title="Open this entry and its audit trail"><?= e(date('Y-m-d H:i', strtotime($r['logged_at']))) ?></a></td>
           <td>
             <strong><?= e($r['person']) ?></strong>
             <?php if (($r['person_type'] ?? 'personnel') !== 'personnel'): ?>

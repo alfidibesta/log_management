@@ -9,6 +9,7 @@
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/documents.php';
 require_once __DIR__ . '/../src/visitors.php';
+require_once __DIR__ . '/../src/audit.php';
 require_can('record');
 
 $pdo = db();
@@ -57,6 +58,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $photo['bytes'] ?? 0,
                 $uid ?: null,
             ]);
+            $newId = (int) $pdo->lastInsertId();
+            audit_record('document', $newId, 'create', [], audit_snapshot('document', $newId) ?? []);
             flash('Document take-out recorded — waiting for leader approval.'
                 . ($photo ? ' Scan saved at ' . number_format($photo['bytes'] / 1024, 0) . ' KB.' : ''));
             header('Location: documents.php');
@@ -81,11 +84,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ((int) $row['user_id'] === $uid && !is_admin()) {
             flash('You cannot approve a document you recorded yourself — ask another leader or an admin.', 'err');
         } else {
-            $note = mb_substr(trim((string) ($_POST['note'] ?? '')), 0, 255);
+            $note   = mb_substr(trim((string) ($_POST['note'] ?? '')), 0, 255);
+            $before = audit_snapshot('document', $id);
             $pdo->prepare("UPDATE documents
                            SET status = ?, approved_by = ?, approved_at = NOW(), approval_note = ?
                            WHERE id = ?")
                 ->execute([$action === 'approve' ? 'approved' : 'rejected', $uid ?: null, $note, $id]);
+            audit_record('document', $id, $action, $before ?? [], audit_snapshot('document', $id) ?? [], $note);
             flash(($action === 'approve' ? 'Approved for' : 'Rejected for') . ' ' . $row['person'] . '.');
         }
         header('Location: ' . doc_return_target());
@@ -97,9 +102,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             http_response_code(403);
             exit('403 — leader approval required.');
         }
+        $id     = (int) ($_POST['id'] ?? 0);
+        $before = audit_snapshot('document', $id);
         $pdo->prepare("UPDATE documents
                        SET status = 'pending', approved_by = NULL, approved_at = NULL, approval_note = ''
-                       WHERE id = ?")->execute([(int) ($_POST['id'] ?? 0)]);
+                       WHERE id = ?")->execute([$id]);
+        audit_record('document', $id, 'reset', $before ?? [], audit_snapshot('document', $id) ?? [],
+            (string) ($_POST['note'] ?? ''));
         flash('Approval undone — the request is pending again.');
         header('Location: ' . doc_return_target());
         exit;
@@ -107,7 +116,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'delete') {
         require_admin();
-        $pdo->prepare("DELETE FROM documents WHERE id = ?")->execute([(int) ($_POST['id'] ?? 0)]);
+        $id     = (int) ($_POST['id'] ?? 0);
+        $before = audit_snapshot('document', $id);
+        $pdo->prepare("DELETE FROM documents WHERE id = ?")->execute([$id]);
+        audit_record('document', $id, 'delete', $before ?? [], [], 'Document take-out deleted');
         flash('Document take-out deleted.');
         header('Location: ' . doc_return_target());
         exit;
@@ -119,7 +131,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $st  = $pdo->prepare("UPDATE documents SET photo = NULL, photo_mime = '', photo_bytes = 0
                               WHERE photo_bytes > 0 AND taken_at < ? LIMIT 200");
         $st->execute([$cut]);
-        flash($st->rowCount() . ' scan(s) older than ' . DOC_PHOTO_KEEP_DAYS
+        $removed = (int) $st->rowCount();
+        audit_record('document', null, 'purge_photos', [], [
+            'Scans removed' => (string) $removed,
+            'Older than'    => $cut,
+        ], (string) ($_POST['reason'] ?? ''), 'Documents · old scans');
+        flash($removed . ' scan(s) older than ' . DOC_PHOTO_KEEP_DAYS
             . ' days removed — the document records stay. Run it again if more remain.');
         header('Location: ' . doc_return_target());
         exit;

@@ -21,8 +21,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $type       = ($_POST['type'] ?? '') === 'in' ? 'in' : 'out';
     $gate       = trim((string) ($_POST['gate'] ?? '')) ?: 'Main Gate';
     $note       = trim((string) ($_POST['note'] ?? ''));
-    /* Stamped by the server — the form has no editable time field. */
-    $when       = date('Y-m-d H:i:s');
+    /* Stamped by the server, in the database's clock — the form has no
+       editable time field, and the time shown above the save button is that
+       same clock, ticking live. */
+    $when       = desk_now();
 
     $err = [];
     if ($person === '')  { $err[] = 'Personnel name is required.'; }
@@ -135,7 +137,7 @@ page_header(t('Record entry'), 'input.php');
         </label>
 
         <label class="field"><?= te('Date & time') ?>
-          <div class="field-auto"><?= date('d M Y, H:i') ?> <span class="muted">· <?= te('automatic') ?></span></div>
+          <?php auto_clock(); ?>
         </label>
       </div>
 

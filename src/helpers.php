@@ -359,6 +359,43 @@ function take_flashes(): array
     return $f;
 }
 
+/**
+ * The wall clock every gate screen runs on: the database's own clock, the same
+ * one that stamps logged_at, time_in and the verification times. PHP's clock
+ * and the browser's can sit in other timezones, and a gate record must never
+ * disagree with the lists that show it.
+ *
+ * @return array{wall:string, epoch:int}
+ */
+function desk_clock(): array
+{
+    $wall  = (string) db()->query('SELECT NOW()')->fetchColumn();
+    $epoch = strtotime($wall . ' UTC');
+    return ['wall' => $wall, 'epoch' => $epoch !== false ? $epoch : time()];
+}
+
+/** "Now" in the database's clock — what a form without a time field stores. */
+function desk_now(): string
+{
+    return desk_clock()['wall'];
+}
+
+/**
+ * The automatic date & time box on a form. It prints the database's time and
+ * carries its epoch so assets/clock.js keeps the seconds ticking, exactly like
+ * the kiosk header, instead of freezing at page load.
+ */
+function auto_clock(): void
+{
+    $clock = desk_clock();
+    ?>
+    <div class="field-auto auto-clock" data-server="<?= (int) $clock['epoch'] ?>">
+      <span class="clock-face"><?= e(gmdate('d M Y, H:i:s', $clock['epoch'])) ?></span>
+      <span class="muted">· <?= te('automatic') ?></span>
+    </div>
+    <?php
+}
+
 /** Redirect back to the verification queue, keeping its filters. */
 function verify_return_target(): string
 {
@@ -554,6 +591,7 @@ function page_footer(): void
           <span>Access Factory Management — gate log</span>
         </footer>
         <script src="assets/live.js" defer></script>
+        <script src="assets/clock.js" defer></script>
         </body>
         </html>
         <?php
@@ -564,6 +602,7 @@ function page_footer(): void
   </div>
 </div>
 <script src="assets/live.js" defer></script>
+<script src="assets/clock.js" defer></script>
 </body>
 </html>
 <?php

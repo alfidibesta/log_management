@@ -302,7 +302,10 @@ mechanism as the rest of the site, and `state.php` now watches visitors as well
 as logs, so a check-in or check-out appears on the screen without anyone
 pressing reload. The clock is the **database's** clock — the same one that
 stamps `time_in` and `logged_at` — so it always agrees with the records beside
-it, whatever timezone the browser is in.
+it, whatever timezone the browser is in. The automatic date & time box on the
+**Record entry**, **Documents out** and **Visitors** forms runs on that same
+clock and ticks every second (`assets/clock.js`), so the time under the form is
+the time the saved record gets.
 
 **Kiosk mode.** Opening the kiosk puts the site in kiosk mode: every page you
 touch from there renders with the same top bar and **no sidebar**, showing only

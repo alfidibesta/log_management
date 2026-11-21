@@ -20,9 +20,7 @@ require_once __DIR__ . '/visitors.php';
  */
 function kiosk_clock(): array
 {
-    $wall  = (string) db()->query('SELECT NOW()')->fetchColumn();
-    $epoch = strtotime($wall . ' UTC');
-    return ['wall' => $wall, 'epoch' => $epoch !== false ? $epoch : time()];
+    return desk_clock();
 }
 
 /** Wall-clock time from a database timestamp, as H:i:s (no timezone shifting). */

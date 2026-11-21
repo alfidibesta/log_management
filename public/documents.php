@@ -31,8 +31,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $purpose = mb_substr(trim((string) ($_POST['purpose'] ?? '')), 0, 180);
         $copies  = max(1, min(9999, (int) ($_POST['copies'] ?? 1)));
         $note    = mb_substr(trim((string) ($_POST['note'] ?? '')), 0, 255);
-        /* Stamped by the server — the form has no editable time field. */
-        $when    = date('Y-m-d H:i:s');
+        /* Stamped by the server, in the database's clock — the form has no
+           editable time field, and the time shown beside it is that clock. */
+        $when    = desk_now();
 
         $err   = [];
         $photo = null;
@@ -278,7 +279,7 @@ page_header('Documents out', 'documents.php');
           <input type="number" name="copies" value="1" min="1" max="9999">
         </label>
         <label class="field" style="flex:0 0 180px">Taken at
-          <div class="field-auto"><?= date('d M Y, H:i') ?> <span class="muted">· automatic</span></div>
+          <?php auto_clock(); ?>
         </label>
         <label class="field grow">Note <span class="muted">(optional)</span>
           <input type="text" name="note" maxlength="255" placeholder="Anything the leader should know">

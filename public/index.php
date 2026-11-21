@@ -90,7 +90,7 @@ page_header('Dashboard', 'index.php');
 <div class="card">
   <div class="card-head">
     <h2>How it works</h2>
-    <span class="filters-summary">Record → verify → approve, in that order</span>
+    <span class="filters-summary">Two paths — start on whichever page the person in front of you needs</span>
   </div>
   <div class="card-body">
     <?php flow_steps(); ?>

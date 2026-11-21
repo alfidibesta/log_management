@@ -312,7 +312,7 @@ function render_document_list(array $rows, bool $canApprove, string $ret = '', b
     }
     $uid = (int) (current_user()['id'] ?? 0);
     ?>
-    <table>
+    <table class="doc-table">
       <thead>
         <tr>
           <th>Scan / file</th><th>Taken</th><th>Personnel</th><th>Document</th>
@@ -334,7 +334,7 @@ function render_document_list(array $rows, bool $canApprove, string $ret = '', b
               <a class="doc-file-link" href="document_file.php?id=<?= $id ?>" target="_blank" rel="noopener"
                  title="Open the PDF — <?= e((string) $r['file_name']) ?>">
                 <span class="doc-file-ico">PDF</span>
-                <span><?= number_format(((int) $r['file_bytes']) / 1024, 0) ?> KB</span>
+                <span><?= (int) $r['file_bytes'] < 1024 ? '&lt;1' : number_format(((int) $r['file_bytes']) / 1024) ?> KB</span>
               </a>
             <?php elseif ((int) $r['photo_bytes'] === 0): ?>
               <span class="doc-photo doc-photo-none">no file</span>
@@ -378,23 +378,23 @@ function render_document_list(array $rows, bool $canApprove, string $ret = '', b
             <?php if ($r['approval_note'] !== ''): ?>
               <br><span class="muted" style="font-size:11.5px">“<?= e($r['approval_note']) ?>”</span>
             <?php endif; ?>
-            <?php if ((int) $r['photo_bytes'] > 0 || (int) ($r['file_bytes'] ?? 0) > 0): ?>
+            <?php if ((int) $r['photo_bytes'] > 0 || (int) ($r['file_bytes'] ?? 0) > 0): $savedKb = (((int) $r['photo_bytes']) + ((int) ($r['file_bytes'] ?? 0))) / 1024; ?>
               <br><span class="muted" style="font-size:11px">
-                <?= number_format((((int) $r['photo_bytes']) + ((int) ($r['file_bytes'] ?? 0))) / 1024, 0) ?> KB saved
+                <?= $savedKb < 1 ? '&lt;1' : number_format($savedKb) ?> KB saved
                 <?php if ((int) ($r['file_bytes'] ?? 0) > 0): ?>· PDF<?php endif; ?>
               </span>
             <?php endif; ?>
           </td>
           <td class="muted"><?= e($r['requester'] ?? '—') ?></td>
           <?php if ($actions): ?>
-          <td class="row-actions">
+          <td class="row-actions doc-actions">
             <?php if ($canApprove && $r['status'] === 'pending' && !($own && !is_admin())): ?>
               <form method="post" action="documents.php" class="doc-approve">
                 <?= csrf_field() ?>
                 <input type="hidden" name="ret" value="<?= e($ret) ?>">
                 <input type="hidden" name="id" value="<?= $id ?>">
                 <input class="remark-input" type="text" name="note" maxlength="255"
-                       placeholder="Approval note (optional)" aria-label="Approval note">
+                       placeholder="Approval note" aria-label="Approval note">
                 <button class="btn btn-primary btn-xs" type="submit" name="action" value="approve">✓ Approve</button>
                 <button class="btn btn-danger btn-xs" type="submit" name="action" value="reject">Reject</button>
               </form>

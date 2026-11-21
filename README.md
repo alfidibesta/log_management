@@ -116,7 +116,8 @@ happens**, and verify it when the person comes back.
 1. Open **Record entry** (the input page).
 2. Fill the form: start typing the **name** (known people are suggested),
    department, **direction** (`IN` = entering the factory, `OUT` = leaving),
-   category, belongings / item, quantity, gate and an optional note.
+   category, belongings / item, quantity and an optional note. The gate is
+   always *Main Gate* — the form does not ask.
 3. The **time is set by the server** when you save — there is nothing to type
    and no way to back-date an entry. Check the direction before saving.
 4. Press **Save**. The new crossing appears immediately in the *Open records*
@@ -311,8 +312,15 @@ the time the saved record gets.
 touch from there renders with the same top bar and **no sidebar**, showing only
 that page. The bar reaches exactly the three gate jobs — *Visitors*,
 *Record entry* and *Documents out* (each only if the role holds that page) —
-plus **Exit kiosk**, which returns the normal sidebar. Forms saved in kiosk
-mode keep the mode, so the desk never falls back into the admin menu mid-shift.
+plus **Full screen**, which fills the wall display without hunting for F11, and
+**Exit kiosk**, which returns the normal sidebar. Forms saved in kiosk mode keep
+the mode, so the desk never falls back into the admin menu mid-shift.
+
+**Leaving needs the PIN.** A screen left alone at the gate must not be a way
+into the admin menu, so **Exit kiosk** asks for the desk PIN first
+(`public/kiosk_exit.php`); a wrong PIN only shows a toast and the board stays
+up. The PIN is `KIOSK_EXIT_PIN` in `config.php` — or the environment variable of
+the same name — and defaults to `4321`: change it per site.
 
 ## Authority (roles)
 

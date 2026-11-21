@@ -19,7 +19,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $item       = trim((string) ($_POST['item'] ?? ''));
     $qty        = max(1, (int) ($_POST['qty'] ?? 1));
     $type       = ($_POST['type'] ?? '') === 'in' ? 'in' : 'out';
-    $gate       = trim((string) ($_POST['gate'] ?? '')) ?: 'Main Gate';
+    /* The gate is fixed: the form no longer asks, every entry is Main Gate. */
+    $gate       = 'Main Gate';
     $note       = trim((string) ($_POST['note'] ?? ''));
     /* Stamped by the server, in the database's clock — the form has no
        editable time field, and the time shown above the save button is that
@@ -130,10 +131,6 @@ page_header(t('Record entry'), 'input.php');
 
         <label class="field" style="max-width:110px"><?= te('Qty') ?>
           <input type="number" name="qty" value="1" min="1" max="9999">
-        </label>
-
-        <label class="field"><?= te('Gate') ?>
-          <input type="text" name="gate" value="Main Gate">
         </label>
 
         <label class="field"><?= te('Date & time') ?>

@@ -79,8 +79,9 @@ page_header('Help', 'help.php');
       <li><strong>Gate kiosk</strong> is the desk screen: today's visitors, who
         is on site and what still needs verifying, refreshing itself. Its top
         bar opens only <em>Visitors</em>, <em>Record entry</em> and
-        <em>Documents out</em>, each without the sidebar; <strong>Exit
-        kiosk</strong> brings the normal menu back.</li>
+        <em>Documents out</em>, each without the sidebar; <strong>Full
+        screen</strong> fills the wall display, and <strong>Exit kiosk</strong> —
+        with the desk PIN — brings the normal menu back.</li>
       <li><strong>Visitors</strong> — check a visitor or contractor worker in
         <em>before</em> they walk through, and out when they leave. The row's
         <strong>Belongings</strong> and <strong>Documents</strong> shortcuts
@@ -113,8 +114,8 @@ page_header('Help', 'help.php');
       <li>Open <a href="input.php">Record entry</a>.</li>
       <li>Start typing the <strong>name</strong> (known people are suggested),
         then choose department, <strong>direction</strong> (IN = entering the
-        factory, OUT = leaving), category, belongings / item, quantity, gate and
-        an optional note.</li>
+        factory, OUT = leaving), category, belongings / item, quantity and an
+        optional note. The gate is always <em>Main Gate</em>.</li>
       <li>The <strong>time is set by the server</strong> when you save — nothing
         to type and no back-dating. Check the direction before saving.</li>
       <li>Press <strong>Save</strong>. The crossing appears in the <em>Open

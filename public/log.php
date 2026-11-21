@@ -53,8 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'impor
     $imported = 0;
     $errors   = [];
     $ins      = $pdo->prepare("INSERT INTO logs
-        (person, dept, category_id, item, qty, type, gate, note, logged_at, user_id, verified, verified_by, verified_at, verify_remark)
-        VALUES (?,?,?,?,?,?,?,?,?,?,1,?,NOW(),?)");
+        (person, dept, category_id, item, qty, type, gate, note, logged_at, user_id, verified, verified_by, verified_at, verify_remark, exception_state)
+        VALUES (?,?,?,?,?,?,?,?,?,?,1,?,NOW(),?,?)");
     $uid = current_user()['id'] ?? null;
 
     $pdo->beginTransaction();
@@ -103,6 +103,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'impor
             continue;
         }
 
+        $remark = mb_substr(trim((string) $get('remark')), 0, 255);
+
         $ins->execute([
             $person,
             (string) $get('department'),
@@ -115,7 +117,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'impor
             $date,
             $uid,
             $uid,
-            mb_substr(trim((string) $get('remark')), 0, 255),
+            $remark,
+            // a remark that says the belongings did not come back opens a case,
+            // exactly as it would have on the Verify page
+            exception_opens($remark) ? 'open' : 'none',
         ]);
         $imported++;
     }
@@ -162,11 +167,14 @@ $catId  = (int) ($_GET['category_id'] ?? 0);
 $q      = trim((string) ($_GET['q'] ?? ''));
 $personType = in_array($_GET['person_type'] ?? '', ['personnel', 'visitor', 'contractor'], true)
     ? (string) $_GET['person_type'] : '';
+// exception register: open cases, closed ones, or any record that was one
+$exception = in_array($_GET['exceptions'] ?? '', ['open', 'closed', 'any'], true)
+    ? (string) $_GET['exceptions'] : '';
 
 /* ---------- export to Excel ---------- */
 if (($_GET['do'] ?? '') === 'export') {
     require_can('manage_data');
-    [$sql, $args] = log_filter_sql($type, $from, $to, $status, $catId, $q, $personType);
+    [$sql, $args] = log_filter_sql($type, $from, $to, $status, $catId, $q, $personType, $exception);
     $sql .= " ORDER BY l.logged_at, l.id LIMIT 20000";
     $st = $pdo->prepare($sql);
     $st->execute($args);
@@ -187,10 +195,12 @@ if (($_GET['do'] ?? '') === 'export') {
             $r['gate'],
             $r['verified'] ? 'Verified' : 'Pending',
             $r['verify_remark'] ?? '',
+            ['open' => 'Open', 'closed' => 'Closed'][$r['exception_state'] ?? 'none'] ?? '',
+            $r['exception_closed_at'] ?? '',
         ];
     }
     xlsx_export(
-        ['Date', 'Time', 'Person', 'Type', 'Department', 'Category', 'Item', 'Qty', 'Direction', 'Note', 'Gate', 'Status', 'Verified by', 'Remark'],
+        ['Date', 'Time', 'Person', 'Type', 'Department', 'Category', 'Item', 'Qty', 'Direction', 'Note', 'Gate', 'Status', 'Verified by', 'Remark', 'Exception', 'Exception closed at'],
         $rows,
         'gate-pass-log-' . date('Y-m-d') . '.xlsx',
         'Gate Pass Log'
@@ -198,7 +208,7 @@ if (($_GET['do'] ?? '') === 'export') {
 }
 
 /* ---------- table data ---------- */
-[$sql, $args] = log_filter_sql($type, $from, $to, $status, $catId, $q, $personType);
+[$sql, $args] = log_filter_sql($type, $from, $to, $status, $catId, $q, $personType, $exception);
 $sql .= " ORDER BY l.logged_at DESC, l.id DESC LIMIT 300";
 $st = $pdo->prepare($sql);
 $st->execute($args);
@@ -206,14 +216,20 @@ $logs = $st->fetchAll();
 
 $categories = $pdo->query("SELECT id, name FROM categories ORDER BY name")->fetchAll();
 $pending    = (int) $pdo->query("SELECT COUNT(*) FROM logs WHERE verified = 0")->fetchColumn();
-$filtered   = ($type !== '' || $from !== '' || $to !== '' || $status !== '' || $catId > 0 || $q !== '' || $personType !== '');
+$filtered   = ($type !== '' || $from !== '' || $to !== '' || $status !== '' || $catId > 0 || $q !== '' || $personType !== '' || $exception !== '');
+$openExceptions = exception_open_count();
 $imports    = db()->query("SELECT * FROM audit_log WHERE entity = 'log' AND action = 'import'
                            ORDER BY created_at DESC, id DESC LIMIT 3")->fetchAll();
 
 page_header('Data Log', 'log.php');
 ?>
-<div class="grid grid-4">
+<div class="grid grid-5">
   <div class="stat"><div class="k">Showing</div><div class="v"><?= count($logs) ?></div><div class="s">entries<?= $filtered ? ' (filtered)' : '' ?></div></div>
+  <div class="stat<?= $openExceptions > 0 ? ' tone-out' : '' ?>">
+    <div class="k"><?= te('Open exceptions') ?></div>
+    <div class="v"><?= number_format($openExceptions) ?></div>
+    <div class="s"><a href="?exceptions=open"><?= te('not returned') ?></a></div>
+  </div>
   <div class="stat"><div class="k">Pending verify</div><div class="v"><?= number_format($pending) ?></div><div class="s">awaiting gate officer</div></div>
   <div class="stat"><div class="k">Verified</div><div class="v"><?= number_format((int) $pdo->query("SELECT COUNT(*) FROM logs WHERE verified=1")->fetchColumn()) ?></div><div class="s">confirmed records</div></div>
   <div class="stat"><div class="k">Total records</div><div class="v"><?= number_format((int) $pdo->query("SELECT COUNT(*) FROM logs")->fetchColumn()) ?></div><div class="s">all time</div></div>
@@ -225,6 +241,7 @@ page_header('Data Log', 'log.php');
     <a class="btn btn-ghost btn-sm" href="?do=export&<?= e(http_build_query(array_filter([
         'type' => $type, 'from' => $from, 'to' => $to, 'status' => $status,
         'category_id' => $catId ?: null, 'q' => $q, 'person_type' => $personType,
+        'exceptions' => $exception,
     ]))) ?>">⬇ Export current filter</a>
   </div>
   <div class="card-body">
@@ -289,6 +306,14 @@ page_header('Data Log', 'log.php');
         <option value="1" <?= $status === '1' ? 'selected' : '' ?>>Verified</option>
       </select>
     </label>
+    <label class="field">Exceptions
+      <select name="exceptions" onchange="this.form.submit()">
+        <option value="">All</option>
+        <option value="open" <?= $exception === 'open' ? 'selected' : '' ?>>Not returned (open)</option>
+        <option value="closed" <?= $exception === 'closed' ? 'selected' : '' ?>>Closed cases</option>
+        <option value="any" <?= $exception === 'any' ? 'selected' : '' ?>>Any exception</option>
+      </select>
+    </label>
     <label class="field">From
       <input type="date" name="from" value="<?= e($from) ?>" onchange="this.form.submit()">
     </label>
@@ -307,6 +332,7 @@ page_header('Data Log', 'log.php');
   <div class="card-body flush" data-live="fragment.php?part=log&<?= e(http_build_query(array_filter([
       'type' => $type, 'from' => $from, 'to' => $to, 'status' => $status,
       'category_id' => $catId ?: null, 'q' => $q, 'person_type' => $personType,
+      'exceptions' => $exception,
   ]))) ?>">
     <?php render_log_table($logs, is_admin()); ?>
   </div>

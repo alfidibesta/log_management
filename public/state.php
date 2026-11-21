@@ -10,7 +10,9 @@ require_login();
 $r = db()->query("SELECT COUNT(*) c,
                          COALESCE(MAX(id),0) m,
                          COALESCE(SUM(verified),0) v,
-                         COALESCE(UNIX_TIMESTAMP(MAX(verified_at)),0) t
+                         COALESCE(UNIX_TIMESTAMP(MAX(verified_at)),0) t,
+                         COALESCE(SUM(exception_state = 'open'),0) e,
+                         COALESCE(UNIX_TIMESTAMP(MAX(exception_closed_at)),0) x
                   FROM logs")->fetch();
 $cats = (int) db()->query("SELECT COUNT(*) FROM categories")->fetchColumn();
 
@@ -21,7 +23,7 @@ $vis = db()->query("SELECT COUNT(*) c,
                            COALESCE(UNIX_TIMESTAMP(MAX(time_out)),0) t
                     FROM visitors")->fetch();
 
-$version = implode('-', [$r['c'], $r['m'], $r['v'], $r['t'], $cats,
+$version = implode('-', [$r['c'], $r['m'], $r['v'], $r['t'], $r['e'], $r['x'], $cats,
                          $vis['c'], $vis['m'], $vis['t']]);
 
 header('Content-Type: application/json; charset=utf-8');

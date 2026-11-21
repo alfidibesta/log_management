@@ -55,6 +55,8 @@ function audit_action_label(string $action): string
         'toggle'             => 'Account status changed',
         'permissions'        => 'Capabilities changed',
         'permissions_reset'  => 'Capabilities reset',
+        'close_exception'    => 'Exception closed',
+        'reopen_exception'   => 'Exception reopened',
     ][$action] ?? ucfirst(str_replace('_', ' ', $action));
 }
 
@@ -67,7 +69,7 @@ function audit_action_tone(string $action): string
     if (in_array($action, ['delete', 'reject', 'unverify', 'permissions_reset'], true)) {
         return 'danger';
     }
-    if (in_array($action, ['reset', 'back', 'purge_photos', 'toggle'], true)) {
+    if (in_array($action, ['reset', 'back', 'purge_photos', 'toggle', 'close_exception', 'reopen_exception'], true)) {
         return 'out';
     }
     return 'accent';
@@ -117,6 +119,10 @@ function audit_snapshot(string $entity, int $id): ?array
             'Verified by'   => (string) ($r['verifier'] ?? '—'),
             'Verified at'   => (string) ($r['verified_at'] ?? '—'),
             'Verify remark' => (string) ($r['verify_remark'] ?? ''),
+            // plain English, so the trail reads the same whatever the desk language is
+            'Exception'     => ['open' => 'Open', 'closed' => 'Closed'][(string) ($r['exception_state'] ?? 'none')] ?? '',
+            'Exception note' => (string) ($r['exception_note'] ?? ''),
+            'Exception closed at' => (string) ($r['exception_closed_at'] ?? ''),
         ];
     }
 

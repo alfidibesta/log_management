@@ -41,8 +41,10 @@ switch ($part) {
         $q      = trim((string) ($_GET['q'] ?? ''));
         $personType = in_array($_GET['person_type'] ?? '', ['personnel', 'visitor', 'contractor'], true)
             ? (string) $_GET['person_type'] : '';
+        $exception = in_array($_GET['exceptions'] ?? '', ['open', 'closed', 'any'], true)
+            ? (string) $_GET['exceptions'] : '';
 
-        [$sql, $args] = log_filter_sql($type, $from, $to, $status, $catId, $q, $personType);
+        [$sql, $args] = log_filter_sql($type, $from, $to, $status, $catId, $q, $personType, $exception);
         $sql .= " ORDER BY l.logged_at DESC, l.id DESC LIMIT 300";
         $st = db()->prepare($sql);
         $st->execute($args);

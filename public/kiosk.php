@@ -24,16 +24,16 @@ $user  = current_user();
 $clock = kiosk_clock(); // the database's clock, the one the records are stamped with
 
 $links = [];
-if (can('view_visitors')) { $links[] = ['visitors.php', 'Visitors']; }
-if (can('view_input') && can('record')) { $links[] = ['input.php', '+ Record entry']; }
-if (can('view_documents')) { $links[] = ['documents.php', 'Documents out']; }
+if (can('view_visitors')) { $links[] = ['visitors.php', t('Visitors')]; }
+if (can('view_input') && can('record')) { $links[] = ['input.php', '+ ' . t('Record entry')]; }
+if (can('view_documents')) { $links[] = ['documents.php', t('Documents out')]; }
 ?>
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gate desk · Access Factory Management</title>
+<title><?= te('Gate desk') ?> · Access Factory Management</title>
 <link rel="stylesheet" href="assets/app.css">
 </head>
 <body class="kiosk">
@@ -42,7 +42,7 @@ if (can('view_documents')) { $links[] = ['documents.php', 'Documents out']; }
   <div class="kiosk-brand">
     <span class="brand-mark">AFM</span>
     <div>
-      <strong>Gate desk</strong>
+      <strong><?= te('Gate desk') ?></strong>
       <small><?= e(date('l, d M Y')) ?> · <?= e($user['name'] ?? '') ?></small>
     </div>
   </div>
@@ -55,7 +55,8 @@ if (can('view_documents')) { $links[] = ['documents.php', 'Documents out']; }
     <?php foreach ($links as [$href, $label]): ?>
       <a class="btn btn-ghost btn-sm" href="<?= e($href) ?>"><?= e($label) ?></a>
     <?php endforeach; ?>
-    <a class="btn btn-ghost btn-sm" href="kiosk.php?exit=1">Exit kiosk</a>
+    <?php lang_switcher('lang-switch-kiosk'); ?>
+    <a class="btn btn-ghost btn-sm" href="kiosk.php?exit=1"><?= te('Exit kiosk') ?></a>
   </nav>
 </header>
 
@@ -64,7 +65,7 @@ if (can('view_documents')) { $links[] = ['documents.php', 'Documents out']; }
 </div>
 
 <footer class="kiosk-foot">
-  <span>Refreshes automatically · press F11 for full screen</span>
+  <span><?= te('Refreshes automatically · press F11 for full screen') ?></span>
   <span>Access Factory Management — gate log</span>
 </footer>
 

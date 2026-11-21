@@ -120,28 +120,28 @@ function render_kiosk_board(): void
     ?>
     <div class="kiosk-stats">
       <div class="ks is-onsite">
-        <div class="k">On site now</div>
+        <div class="k"><?= te('On site now') ?></div>
         <div class="v" id="k-onsite"><?= number_format((int) $d['onsite_count']) ?></div>
         <div class="s">
-          <?= (int) $d['onsite_count'] === 1 ? 'visitor or contractor' : 'visitors and contractors' ?>
+          <?= te((int) $d['onsite_count'] === 1 ? 'visitor or contractor' : 'visitors and contractors') ?>
           <?php if ((int) $d['visitors_today'] > 0): ?>
-            · <?= number_format((int) $d['visitors_today']) ?> checked in today
+            · <?= number_format((int) $d['visitors_today']) ?> <?= te('checked in today') ?>
           <?php endif; ?>
         </div>
       </div>
       <div class="ks <?= e($pendingTone) ?>">
-        <div class="k">Pending verification</div>
+        <div class="k"><?= te('Pending verification') ?></div>
         <div class="v" id="k-pending"><?= number_format($pendingCount) ?></div>
         <div class="s">
           <?php if ($pendingCount === 0): ?>
-            queue is clear
+            <?= te('queue is clear') ?>
           <?php else: ?>
-            oldest waiting <?= e(kiosk_age((string) $d['oldest_wait'], $nowEpoch)) ?>
+            <?= te('oldest waiting') ?> <?= e(kiosk_age((string) $d['oldest_wait'], $nowEpoch)) ?>
           <?php endif; ?>
         </div>
       </div>
       <div class="ks">
-        <div class="k">Gate passes today</div>
+        <div class="k"><?= te('Gate passes today') ?></div>
         <div class="v"><?= number_format((int) $d['in_today'] + (int) $d['out_today']) ?></div>
         <div class="s">
           <span style="color:var(--green)"><?= number_format((int) $d['in_today']) ?> in</span>
@@ -153,19 +153,19 @@ function render_kiosk_board(): void
     <div class="kiosk-cols">
       <div class="card">
         <div class="card-head">
-          <h2>On site &amp; checked in today</h2>
+          <h2><?= te('On site & checked in today') ?></h2>
           <span class="filters-summary">
-            as of <?= e(kiosk_time_of($nowWall)) ?> · <?= number_format((int) $d['visitors_today']) ?> today
+            <?= te('as of') ?> <?= e(kiosk_time_of($nowWall)) ?> · <?= number_format((int) $d['visitors_today']) ?> <?= te('today') ?>
           </span>
         </div>
         <div class="card-body flush">
           <?php if (!$d['rows']): ?>
-            <div class="empty">Nobody is on site and no visitor has checked in today.
-              <?php if (can('view_visitors')): ?>Use <a href="visitors.php">Visitors</a> to check someone in.<?php endif; ?></div>
+            <div class="empty"><?= te('Nobody is on site and no visitor has checked in today.') ?>
+              <?php if (can('view_visitors')): ?><?= te('Use Visitors to check someone in.') ?><?php endif; ?></div>
           <?php else: ?>
             <table>
               <thead>
-                <tr><th>Name</th><th>Type</th><th>Company</th><th>In</th><th>Status</th></tr>
+                <tr><th><?= te('Name') ?></th><th><?= te('Type') ?></th><th><?= te('Company') ?></th><th>IN</th><th><?= te('Status') ?></th></tr>
               </thead>
               <tbody>
               <?php foreach ($d['rows'] as $v): ?>
@@ -181,7 +181,7 @@ function render_kiosk_board(): void
                   <td class="mono"><?= e(substr(kiosk_time_of((string) $v['time_in']), 0, 5)) ?></td>
                   <td>
                     <?php if ($v['time_out'] === null): ?>
-                      <span class="badge badge-in">on site</span>
+                      <span class="badge badge-in"><?= te('on site') ?></span>
                     <?php else: ?>
                       <span class="badge badge-neutral">out <?= e(substr(kiosk_time_of((string) $v['time_out']), 0, 5)) ?></span>
                     <?php endif; ?>
@@ -196,18 +196,18 @@ function render_kiosk_board(): void
 
       <div class="card">
         <div class="card-head">
-          <h2>Waiting to verify</h2>
+          <h2><?= te('Waiting to verify') ?></h2>
           <?php if (can('view_verify')): ?>
-            <a class="btn btn-ghost btn-sm" href="verify.php">Open queue</a>
+            <a class="btn btn-ghost btn-sm" href="verify.php"><?= te('Open queue') ?></a>
           <?php endif; ?>
         </div>
         <div class="card-body flush">
           <?php if (!$d['pending']): ?>
-            <div class="empty">Nothing to verify — every record has been checked.</div>
+            <div class="empty"><?= te('Nothing to verify — every record has been checked.') ?></div>
           <?php else: ?>
             <table>
               <thead>
-                <tr><th>Dir</th><th>Personnel</th><th>Belongings</th><th class="num">Waiting</th></tr>
+                <tr><th><?= te('Dir') ?></th><th><?= te('Personnel') ?></th><th><?= te('Belongings') ?></th><th class="num"><?= te('Waiting') ?></th></tr>
               </thead>
               <tbody>
               <?php foreach ($d['pending'] as $r): ?>

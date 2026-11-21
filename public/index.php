@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/visitors.php';
 require_once __DIR__ . '/../src/documents.php';
+require_once __DIR__ . '/../src/exceptions.php';
 if (isset($_GET['exit_kiosk'])) {
     kiosk_exit();
 }
@@ -56,6 +57,9 @@ $onsiteCount     = (int) $pdo->query("SELECT COUNT(*) FROM visitors WHERE time_o
 $pendingDocs     = fetch_documents('pending', '', '', '', '', 6);
 $pendingDocCount = (int) $pdo->query("SELECT COUNT(*) FROM documents WHERE status = 'pending'")->fetchColumn();
 
+// belongings that left the gate and did not come back (the register is on Verify)
+$openExceptionCount = exception_open_count();
+
 $recent = $pdo->query("SELECT l.*, c.name AS category_name, u.name AS recorder
                        FROM logs l
                        JOIN categories c ON c.id = l.category_id
@@ -64,26 +68,31 @@ $recent = $pdo->query("SELECT l.*, c.name AS category_name, u.name AS recorder
 
 page_header('Dashboard', 'index.php');
 ?>
-<div class="grid grid-4">
+<div class="grid grid-5">
   <div class="stat tone-in">
-    <div class="k">IN today</div>
+    <div class="k"><?= te('IN today') ?></div>
     <div class="v"><?= number_format($inToday) ?></div>
-    <div class="s">personnel entering</div>
+    <div class="s"><?= te('personnel entering') ?></div>
   </div>
   <div class="stat tone-out">
-    <div class="k">OUT today</div>
+    <div class="k"><?= te('OUT today') ?></div>
     <div class="v"><?= number_format($outToday) ?></div>
-    <div class="s">personnel leaving</div>
+    <div class="s"><?= te('personnel leaving') ?></div>
   </div>
   <div class="stat">
-    <div class="k">Pending verify</div>
+    <div class="k"><?= te('Pending verify') ?></div>
     <div class="v"><?= number_format($pending) ?></div>
-    <div class="s"><a href="verify.php">verify now</a></div>
+    <div class="s"><a href="verify.php"><?= te('verify now') ?></a></div>
+  </div>
+  <div class="stat<?= $openExceptionCount > 0 ? ' tone-out' : '' ?>">
+    <div class="k"><?= te('Open exceptions') ?></div>
+    <div class="v"><?= number_format($openExceptionCount) ?></div>
+    <div class="s"><a href="verify.php#exceptions"><?= te('not returned') ?></a></div>
   </div>
   <div class="stat">
-    <div class="k">Total records</div>
+    <div class="k"><?= te('Total records') ?></div>
     <div class="v"><?= number_format($totalRows) ?></div>
-    <div class="s"><a href="summary.php">see summary</a></div>
+    <div class="s"><a href="summary.php"><?= te('see summary') ?></a></div>
   </div>
 </div>
 

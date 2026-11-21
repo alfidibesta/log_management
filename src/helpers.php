@@ -8,6 +8,11 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Desk language (English / Indonesian) and the ?lang= switch, before any page
+// renders. The labels themselves live in src/lang.php.
+require_once __DIR__ . '/lang.php';
+ui_lang_handle_request();
+
 function e(?string $v): string
 {
     return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
@@ -405,26 +410,26 @@ function nav_items(): array
     $waitingVerify = (int) ($c['logs'] ?? 0);
 
     $items = [];
-    if (can('view_dashboard')) { $items[] = ['index.php', 'Dashboard', '▦']; }
-    if (can('view_kiosk'))     { $items[] = ['kiosk.php', 'Gate kiosk', '▤']; }
-    if (can('view_input'))     { $items[] = ['input.php', 'Record entry', '＋']; }
+    if (can('view_dashboard')) { $items[] = ['index.php', t('Dashboard'), '▦']; }
+    if (can('view_kiosk'))     { $items[] = ['kiosk.php', t('Gate kiosk'), '▤']; }
+    if (can('view_input'))     { $items[] = ['input.php', t('Record entry'), '＋']; }
     if (can('view_verify')) {
-        $items[] = ['verify.php', $waitingVerify > 0 ? 'Verify queue (' . $waitingVerify . ')' : 'Verify queue', '✓'];
+        $items[] = ['verify.php', t('Verify queue') . ($waitingVerify > 0 ? ' (' . $waitingVerify . ')' : ''), '✓'];
     }
     if (can('view_documents')) {
-        $items[] = ['documents.php', can('approve') && $waitingDocs > 0
-            ? 'Documents out (' . $waitingDocs . ')' : 'Documents out', '⇪'];
+        $items[] = ['documents.php', t('Documents out')
+            . (can('approve') && $waitingDocs > 0 ? ' (' . $waitingDocs . ')' : ''), '⇪'];
     }
-    if (can('view_visitors')) { $items[] = ['visitors.php', 'Visitors', '⚑']; }
-    if (can('view_summary'))  { $items[] = ['summary.php', 'Summary', '≡']; }
-    $items[] = ['help.php', 'Help', '?'];
+    if (can('view_visitors')) { $items[] = ['visitors.php', t('Visitors'), '⚑']; }
+    if (can('view_summary'))  { $items[] = ['summary.php', t('Summary'), '≡']; }
+    $items[] = ['help.php', t('Help'), '?'];
     if (can('view_data')) {
-        $items[] = ['log.php', 'Data Log', '☰'];
-        $items[] = ['doclog.php', 'Document Log', '⇩'];
-        $items[] = ['categories.php', 'Categories', '▣'];
+        $items[] = ['log.php', t('Data Log'), '☰'];
+        $items[] = ['doclog.php', t('Document Log'), '⇩'];
+        $items[] = ['categories.php', t('Categories'), '▣'];
     }
     if (can('view_users')) {
-        $items[] = ['users.php', 'Users & roles', '◆'];
+        $items[] = ['users.php', t('Users & roles'), '◆'];
     }
     return $items;
 }
@@ -444,17 +449,17 @@ function flow_steps(string $current = ''): void
 {
     $paths = [
         [
-            'title' => 'Belongings IN / OUT',
+            'title' => t('Belongings IN / OUT'),
             'steps' => [
-                ['record', 'input.php', 'Record', 'Log what is carried'],
-                ['verify', 'verify.php', 'Verify', 'Check IN ↔ OUT'],
+                ['record', 'input.php', t('Record'), t('Log what is carried')],
+                ['verify', 'verify.php', t('Verify'), t('Check IN ↔ OUT')],
             ],
         ],
         [
-            'title' => 'Documents out',
+            'title' => t('Documents out'),
             'steps' => [
-                ['document', 'documents.php', 'Record', 'Title, scan or PDF'],
-                ['approve', 'documents.php?status=pending', 'Approve', 'A leader clears it'],
+                ['document', 'documents.php', t('Record'), t('Title, scan or PDF')],
+                ['approve', 'documents.php?status=pending', t('Approve'), t('A leader clears it')],
             ],
         ],
     ];
@@ -517,7 +522,8 @@ function page_header(string $title, string $active): void
           <small class="role role-<?= e($u['role'] ?? '') ?>"><?= e($u['role'] ?? '') ?></small>
         </span>
       </div>
-      <a class="link-quiet" href="logout.php">Sign out</a>
+      <a class="link-quiet" href="logout.php"><?= te('Sign out') ?></a>
+      <?php lang_switcher(); ?>
     </div>
   </aside>
 
@@ -527,7 +533,7 @@ function page_header(string $title, string $active): void
       <div class="topbar-right">
         <span class="pill"><?= date('D, d M Y') ?></span>
         <?php if (can('view_input') && can('record')): ?>
-          <a class="btn btn-primary btn-sm" href="input.php">+ New entry</a>
+          <a class="btn btn-primary btn-sm" href="input.php">+ <?= te('New entry') ?></a>
         <?php endif; ?>
       </div>
     </header>
@@ -574,10 +580,10 @@ function kiosk_page_header(string $title, string $active): void
     $u = current_user();
 
     $links = [];
-    if (can('view_kiosk'))     { $links[] = ['kiosk.php', 'Gate desk']; }
-    if (can('view_visitors'))  { $links[] = ['visitors.php', 'Visitors']; }
-    if (can('view_input') && can('record')) { $links[] = ['input.php', '+ Record entry']; }
-    if (can('view_documents')) { $links[] = ['documents.php', 'Documents out']; }
+    if (can('view_kiosk'))     { $links[] = ['kiosk.php', t('Gate desk')]; }
+    if (can('view_visitors'))  { $links[] = ['visitors.php', t('Visitors')]; }
+    if (can('view_input') && can('record')) { $links[] = ['input.php', '+ ' . t('Record entry')]; }
+    if (can('view_documents')) { $links[] = ['documents.php', t('Documents out')]; }
     ?>
 <!doctype html>
 <html lang="en">
@@ -601,7 +607,8 @@ function kiosk_page_header(string $title, string $active): void
       <a class="btn <?= $active === $href ? 'btn-primary' : 'btn-ghost' ?> btn-sm"
          href="<?= e($href) ?>"><?= e($label) ?></a>
     <?php endforeach; ?>
-    <a class="btn btn-ghost btn-sm" href="index.php?exit_kiosk=1">Exit kiosk</a>
+    <?php lang_switcher('lang-switch-kiosk'); ?>
+    <a class="btn btn-ghost btn-sm" href="index.php?exit_kiosk=1"><?= te('Exit kiosk') ?></a>
   </nav>
 </header>
 <div class="kiosk-body kiosk-page-body">

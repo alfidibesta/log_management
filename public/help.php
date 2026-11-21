@@ -220,6 +220,11 @@ page_header('Help', 'help.php');
         standard matrix.</li>
       <li>The <strong>last active admin</strong> cannot be demoted or disabled.
         Create a second admin before changing your own account.</li>
+      <li><strong>Gate kiosk exit PIN</strong> — the PIN the desk screen asks for
+        before it gives the admin menu back. Type it twice, save, and it applies
+        to the next exit; it is stored hashed and each change is in the audit
+        trail. Until one is set here, the fallback in <span class="mono">config.php</span>
+        is used.</li>
     </ol>
 
     <h3>Data and housekeeping</h3>

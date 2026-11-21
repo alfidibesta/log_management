@@ -319,8 +319,11 @@ the mode, so the desk never falls back into the admin menu mid-shift.
 **Leaving needs the PIN.** A screen left alone at the gate must not be a way
 into the admin menu, so **Exit kiosk** asks for the desk PIN first
 (`public/kiosk_exit.php`); a wrong PIN only shows a toast and the board stays
-up. The PIN is `KIOSK_EXIT_PIN` in `config.php` — or the environment variable of
-the same name — and defaults to `4321`: change it per site.
+up. An admin sets the PIN on **Users & roles → Gate kiosk exit PIN**; it is kept
+server-side as a hash beside the role permissions, so no screen or database dump
+shows it, and each change is written to the audit trail. Until one is set,
+`KIOSK_EXIT_PIN` in `config.php` (or the environment variable of the same name)
+is the fallback, defaulting to `4321`.
 
 ## Authority (roles)
 

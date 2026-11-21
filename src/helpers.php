@@ -310,18 +310,40 @@ function kiosk_exit(): void
 
 /**
  * The PIN that unlocks leaving the desk screen. The kiosk outlives the person
- * standing at it, so the way back into the admin menu is not a plain click:
- * set KIOSK_EXIT_PIN in config.php (or the environment) for the site.
+ * standing at it, so the way back into the admin menu is not a plain click.
+ *
+ * An admin sets it on Users & roles: it is kept in the settings table beside
+ * the role capabilities, as a hash, so nobody can read it off the database or
+ * the screen. Until one is set, KIOSK_EXIT_PIN in config.php (or the
+ * environment) is the fallback, which keeps older installs working.
  */
-function kiosk_exit_pin(): string
+function kiosk_exit_pin_hash(): string
+{
+    return setting_get('kiosk_exit_pin');
+}
+
+/** The PIN shipped in config.php — only used until an admin sets one. */
+function kiosk_exit_pin_from_config(): string
 {
     return defined('KIOSK_EXIT_PIN') ? (string) KIOSK_EXIT_PIN : '4321';
 }
 
+function kiosk_exit_pin_is_custom(): bool
+{
+    return kiosk_exit_pin_hash() !== '';
+}
+
 function kiosk_exit_allowed(string $pin): bool
 {
-    $expected = kiosk_exit_pin();
-    return $expected !== '' && $pin !== '' && hash_equals($expected, $pin);
+    if ($pin === '') {
+        return false;
+    }
+    $hash = kiosk_exit_pin_hash();
+    if ($hash !== '') {
+        return password_verify($pin, $hash);
+    }
+    $expected = kiosk_exit_pin_from_config();
+    return $expected !== '' && hash_equals($expected, $pin);
 }
 
 /**

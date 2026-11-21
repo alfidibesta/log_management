@@ -75,31 +75,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    if ($action === 'kiosk_pin' || $action === 'kiosk_pin_reset') {
-        $current = kiosk_exit_pin_is_custom() ? 'set by an admin' : 'config.php fallback';
+    if ($action === 'kiosk_pin') {
+        $pin      = (string) ($_POST['kiosk_pin'] ?? '');
+        $again    = (string) ($_POST['kiosk_pin_confirm'] ?? '');
+        // read before saving: it is what the audit trail calls the "before"
+        $wasCustom = kiosk_exit_pin_is_custom();
 
-        if ($action === 'kiosk_pin_reset') {
-            $pdo->prepare("DELETE FROM settings WHERE k = 'kiosk_exit_pin'")->execute();
-            audit_record('kiosk_pin', null, 'kiosk_pin_reset',
-                ['Exit kiosk PIN' => $current], ['Exit kiosk PIN' => 'config.php fallback'],
-                (string) ($_POST['reason'] ?? ''), 'Gate kiosk exit PIN');
-            flash('Kiosk exit PIN reset — the config.php value is back in force.');
+        if (!preg_match('/^[0-9]{4,12}$/', $pin)) {
+            flash('The kiosk exit PIN must be 4 to 12 digits.', 'err');
+        } elseif ($pin !== $again) {
+            flash('The two PIN entries do not match.', 'err');
         } else {
-            $pin   = (string) ($_POST['kiosk_pin'] ?? '');
-            $again = (string) ($_POST['kiosk_pin_confirm'] ?? '');
-            if (!preg_match('/^[0-9]{4,12}$/', $pin)) {
-                flash('The kiosk exit PIN must be 4 to 12 digits.', 'err');
-            } elseif ($pin !== $again) {
-                flash('The two PIN entries do not match.', 'err');
-            } else {
-                // A hash, like a password: the PIN leaves the kiosk, so it must
-                // never be readable from the settings table or the audit trail.
-                setting_set('kiosk_exit_pin', password_hash($pin, PASSWORD_DEFAULT));
-                audit_record('kiosk_pin', null, 'kiosk_pin',
-                    ['Exit kiosk PIN' => $current], ['Exit kiosk PIN' => 'set by an admin'],
-                    (string) ($_POST['reason'] ?? ''), 'Gate kiosk exit PIN');
-                flash('Kiosk exit PIN changed — the next exit asks for the new one.');
-            }
+            // A hash, like a password: the PIN lets go of the kiosk, so it must
+            // never be readable from the settings table or the audit trail.
+            setting_set('kiosk_exit_pin', password_hash($pin, PASSWORD_DEFAULT));
+            audit_record('kiosk_pin', null, 'kiosk_pin',
+                ['Exit kiosk PIN' => $wasCustom ? 'set by an admin' : 'config.php fallback'],
+                ['Exit kiosk PIN' => 'set by an admin'],
+                (string) ($_POST['reason'] ?? ''), 'Gate kiosk exit PIN');
+            flash('Kiosk exit PIN changed — the next exit asks for the new one.');
         }
         header('Location: users.php');
         exit;
@@ -284,16 +278,6 @@ page_header('Users & roles', 'users.php');
       <?php endif; ?>
       Only an admin can change it, and the old PIN stops working immediately.
     </p>
-    <?php if (kiosk_exit_pin_is_custom()): ?>
-      <form method="post" style="margin-top:8px">
-        <?= csrf_field() ?>
-        <input type="hidden" name="action" value="kiosk_pin_reset">
-        <button class="btn btn-ghost btn-sm" type="submit"
-                onclick="return confirm('Go back to the config.php PIN?')">
-          Use the config.php PIN again
-        </button>
-      </form>
-    <?php endif; ?>
   </div>
 </div>
 

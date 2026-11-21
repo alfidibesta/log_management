@@ -57,7 +57,6 @@ function audit_action_label(string $action): string
         'permissions'        => 'Capabilities changed',
         'permissions_reset'  => 'Capabilities reset',
         'kiosk_pin'          => 'Kiosk exit PIN changed',
-        'kiosk_pin_reset'    => 'Kiosk exit PIN reset',
         'close_exception'    => 'Exception closed',
         'reopen_exception'   => 'Exception reopened',
     ][$action] ?? ucfirst(str_replace('_', ' ', $action));
@@ -69,7 +68,7 @@ function audit_action_tone(string $action): string
     if (in_array($action, ['verify', 'approve', 'create', 'checkin', 'user_create'], true)) {
         return 'in';
     }
-    if (in_array($action, ['delete', 'reject', 'unverify', 'permissions_reset', 'kiosk_pin_reset'], true)) {
+    if (in_array($action, ['delete', 'reject', 'unverify', 'permissions_reset'], true)) {
         return 'danger';
     }
     if (in_array($action, ['reset', 'back', 'purge_photos', 'toggle', 'close_exception', 'reopen_exception'], true)) {
@@ -324,7 +323,6 @@ function audit_back_link(string $entity): string
         'visitor'   => 'visitors.php',
         'user'      => 'users.php',
         'role_caps' => 'users.php',
-        'kiosk_pin' => 'users.php',
     ][$entity] ?? 'index.php';
 }
 

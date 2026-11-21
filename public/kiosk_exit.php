@@ -10,8 +10,10 @@
 require_once __DIR__ . '/../src/helpers.php';
 require_login();
 
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    header('Location: kiosk.php');
+// Nothing to leave: answer a stray POST (a stale tab, a reload) with the site
+// instead of a PIN prompt and a "Left the kiosk" toast for a mode you are not in.
+if (!kiosk_mode() || ($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+    header('Location: index.php');
     exit;
 }
 verify_csrf();

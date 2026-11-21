@@ -317,20 +317,9 @@ function kiosk_exit(): void
  * the screen. Until one is set, KIOSK_EXIT_PIN in config.php (or the
  * environment) is the fallback, which keeps older installs working.
  */
-function kiosk_exit_pin_hash(): string
-{
-    return setting_get('kiosk_exit_pin');
-}
-
-/** The PIN shipped in config.php — only used until an admin sets one. */
-function kiosk_exit_pin_from_config(): string
-{
-    return defined('KIOSK_EXIT_PIN') ? (string) KIOSK_EXIT_PIN : '4321';
-}
-
 function kiosk_exit_pin_is_custom(): bool
 {
-    return kiosk_exit_pin_hash() !== '';
+    return setting_get('kiosk_exit_pin') !== '';
 }
 
 function kiosk_exit_allowed(string $pin): bool
@@ -338,11 +327,13 @@ function kiosk_exit_allowed(string $pin): bool
     if ($pin === '') {
         return false;
     }
-    $hash = kiosk_exit_pin_hash();
-    if ($hash !== '') {
-        return password_verify($pin, $hash);
+    $stored = setting_get('kiosk_exit_pin');
+    if ($stored !== '') {
+        return password_verify($pin, $stored);
     }
-    $expected = kiosk_exit_pin_from_config();
+    // The fallback is a plain config value, not a hash: compare it in constant
+    // time so the comparison says nothing about how much of it matched.
+    $expected = defined('KIOSK_EXIT_PIN') ? (string) KIOSK_EXIT_PIN : '4321';
     return $expected !== '' && hash_equals($expected, $pin);
 }
 

@@ -76,10 +76,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'impor
         $date   = xlsx_to_datetime($get('date'));
         $time   = (string) $get('time');
 
-        if ($date && $time && !is_numeric($get('date'))) {
+        // Date and Time arrive in separate columns: keep the row's own day
+        // from the Date cell and only take the time of day from Time.
+        if ($date !== null && $time !== '') {
             $t = strtotime($time);
-            if ($t) {
-                $date = date('Y-m-d ') . date('H:i:s', $t);
+            if ($t !== false) {
+                $date = substr($date, 0, 10) . ' ' . date('H:i:s', $t);
             }
         }
 

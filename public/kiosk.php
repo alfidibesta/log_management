@@ -6,17 +6,12 @@
  * Opening it also switches the site into kiosk mode: the three gate pages
  * (Visitors, Record entry, Documents out) render with this same top bar and no
  * sidebar, so the desk can work the shift without the admin menu. "Exit kiosk"
- * puts the normal site back.
+ * puts the normal site back, but only with the desk PIN (kiosk_exit.php), so a
+ * screen left alone at the gate cannot be walked into the admin menu.
  */
 require_once __DIR__ . '/../src/helpers.php';
 require_once __DIR__ . '/../src/kiosk.php';
 require_can('view_kiosk');
-
-if (isset($_GET['exit'])) {
-    kiosk_exit();
-    header('Location: index.php');
-    exit;
-}
 
 kiosk_enter();
 
@@ -56,20 +51,24 @@ if (can('view_documents')) { $links[] = ['documents.php', t('Documents out')]; }
       <a class="btn btn-ghost btn-sm" href="<?= e($href) ?>"><?= e($label) ?></a>
     <?php endforeach; ?>
     <?php lang_switcher('lang-switch-kiosk'); ?>
-    <a class="btn btn-ghost btn-sm" href="kiosk.php?exit=1"><?= te('Exit kiosk') ?></a>
+    <?php kiosk_bar_actions(); ?>
   </nav>
 </header>
 
 <div class="kiosk-body" data-live="fragment.php?part=kiosk">
+  <?php foreach (take_flashes() as $f): ?>
+    <div class="toast toast-<?= e($f['type']) ?>"><?= e($f['msg']) ?></div>
+  <?php endforeach; ?>
   <?php render_kiosk_board(); ?>
 </div>
 
 <footer class="kiosk-foot">
-  <span><?= te('Refreshes automatically · press F11 for full screen') ?></span>
+  <span><?= te('Refreshes automatically · Full screen fills the wall display') ?></span>
   <span>Access Factory Management — gate log</span>
 </footer>
 
 <script src="assets/live.js" defer></script>
+<script src="assets/kiosk.js" defer></script>
 <script>
 /* The wall clock only: the numbers below refresh themselves through live.js.
    It ticks from the server's clock and is read in UTC, so it always matches

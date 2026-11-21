@@ -308,6 +308,55 @@ function kiosk_exit(): void
     unset($_SESSION['kiosk']);
 }
 
+/**
+ * The PIN that unlocks leaving the desk screen. The kiosk outlives the person
+ * standing at it, so the way back into the admin menu is not a plain click:
+ * set KIOSK_EXIT_PIN in config.php (or the environment) for the site.
+ */
+function kiosk_exit_pin(): string
+{
+    return defined('KIOSK_EXIT_PIN') ? (string) KIOSK_EXIT_PIN : '4321';
+}
+
+function kiosk_exit_allowed(string $pin): bool
+{
+    $expected = kiosk_exit_pin();
+    return $expected !== '' && $pin !== '' && hash_equals($expected, $pin);
+}
+
+/**
+ * Where a refused exit goes back to: a kiosk page, never a posted URL, so the
+ * form cannot be turned into an open redirect.
+ */
+function kiosk_exit_return(): string
+{
+    $ret = basename((string) ($_POST['ret'] ?? ''));
+    return in_array($ret, ['kiosk.php', 'visitors.php', 'input.php', 'documents.php'], true)
+        ? $ret
+        : 'kiosk.php';
+}
+
+/**
+ * The kiosk top bar's two controls: fill the wall display, and the PIN-guarded
+ * way out. Rendered by both kiosk bars so the desk screen behaves the same
+ * wherever the shift moves.
+ */
+function kiosk_bar_actions(): void
+{
+    $here = basename((string) ($_SERVER['SCRIPT_NAME'] ?? 'kiosk.php'));
+    ?>
+    <button class="btn btn-ghost btn-sm" type="button" data-fullscreen
+            data-full="<?= te('Full screen') ?>" data-exit-full="<?= te('Leave full screen') ?>"><?= te('Full screen') ?></button>
+    <form class="kiosk-exit" method="post" action="kiosk_exit.php">
+      <?= csrf_field() ?>
+      <input type="hidden" name="ret" value="<?= e($here) ?>">
+      <input class="pin" type="password" name="pin" inputmode="numeric" maxlength="12"
+             autocomplete="off" placeholder="<?= te('PIN') ?>" aria-label="<?= te('Exit kiosk PIN') ?>">
+      <button class="btn btn-ghost btn-sm" type="submit"><?= te('Exit kiosk') ?></button>
+    </form>
+    <?php
+}
+
 function require_login(): void
 {
     if (!current_user()) {
@@ -592,6 +641,7 @@ function page_footer(): void
         </footer>
         <script src="assets/live.js" defer></script>
         <script src="assets/clock.js" defer></script>
+        <script src="assets/kiosk.js" defer></script>
         </body>
         </html>
         <?php
@@ -647,7 +697,7 @@ function kiosk_page_header(string $title, string $active): void
          href="<?= e($href) ?>"><?= e($label) ?></a>
     <?php endforeach; ?>
     <?php lang_switcher('lang-switch-kiosk'); ?>
-    <a class="btn btn-ghost btn-sm" href="index.php?exit_kiosk=1"><?= te('Exit kiosk') ?></a>
+    <?php kiosk_bar_actions(); ?>
   </nav>
 </header>
 <div class="kiosk-body kiosk-page-body">

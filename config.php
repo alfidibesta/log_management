@@ -8,6 +8,11 @@
  * On a real host, override with environment variables:
  *   LOG_DB_HOST, LOG_DB_PORT, LOG_DB_NAME, LOG_DB_USER, LOG_DB_PASS
  */
+
+// The PIN that unlocks leaving the gate kiosk (the desk screen). Change it to
+// whatever the gate team knows; KIOSK_EXIT_PIN in the environment wins.
+define('KIOSK_EXIT_PIN', getenv('KIOSK_EXIT_PIN') ?: '4321');
+
 return [
     'db' => [
         // Empty host => connect through the unix socket below.

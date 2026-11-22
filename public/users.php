@@ -75,6 +75,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    if ($action === 'kiosk_pin') {
+        $pin      = (string) ($_POST['kiosk_pin'] ?? '');
+        $again    = (string) ($_POST['kiosk_pin_confirm'] ?? '');
+        // read before saving: it is what the audit trail calls the "before"
+        $wasCustom = kiosk_exit_pin_is_custom();
+
+        if (!preg_match('/^[0-9]{4,12}$/', $pin)) {
+            flash('The kiosk exit PIN must be 4 to 12 digits.', 'err');
+        } elseif ($pin !== $again) {
+            flash('The two PIN entries do not match.', 'err');
+        } else {
+            // A hash, like a password: the PIN lets go of the kiosk, so it must
+            // never be readable from the settings table or the audit trail.
+            setting_set('kiosk_exit_pin', password_hash($pin, PASSWORD_DEFAULT));
+            audit_record('kiosk_pin', null, 'kiosk_pin',
+                ['Exit kiosk PIN' => $wasCustom ? 'set by an admin' : 'config.php fallback'],
+                ['Exit kiosk PIN' => 'set by an admin'],
+                (string) ($_POST['reason'] ?? ''), 'Gate kiosk exit PIN');
+            flash('Kiosk exit PIN changed — the next exit asks for the new one.');
+        }
+        header('Location: users.php');
+        exit;
+    }
+
     if ($action === 'role') {
         $id   = (int) ($_POST['id'] ?? 0);
         $role = in_array($_POST['role'] ?? '', ['admin', 'personnel', 'leader'], true) ? (string) $_POST['role'] : 'personnel';
@@ -126,7 +150,7 @@ $users = $pdo->query("SELECT u.*,
         (SELECT COUNT(*) FROM logs l WHERE l.user_id = u.id) AS entries
       FROM users u ORDER BY u.role DESC, u.username")->fetchAll();
 
-$recentAudit = audit_feed(['user', 'role_caps'], 30);
+$recentAudit = audit_feed(['user', 'role_caps', 'kiosk_pin'], 30);
 
 page_header('Users & roles', 'users.php');
 ?>
@@ -220,6 +244,45 @@ page_header('Users & roles', 'users.php');
 
 <div class="card">
   <div class="card-head">
+    <h2>Gate kiosk exit PIN</h2>
+    <span class="filters-summary">What the desk screen asks before it gives the admin menu back</span>
+  </div>
+  <div class="card-body">
+    <form method="post" class="grid grid-form">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="kiosk_pin">
+      <label class="field">New PIN
+        <input type="password" name="kiosk_pin" required minlength="4" maxlength="12"
+               inputmode="numeric" pattern="[0-9]{4,12}" autocomplete="new-password"
+               placeholder="4–12 digits">
+      </label>
+      <label class="field">Repeat PIN
+        <input type="password" name="kiosk_pin_confirm" required minlength="4" maxlength="12"
+               inputmode="numeric" pattern="[0-9]{4,12}" autocomplete="new-password"
+               placeholder="type it again">
+      </label>
+      <label class="field grow">Reason <span class="muted">(optional — kept in the audit trail)</span>
+        <input type="text" name="reason" maxlength="255" placeholder="e.g. new gate team">
+      </label>
+      <div class="field" style="justify-content:flex-end">
+        <button class="btn btn-primary" type="submit">Save PIN</button>
+      </div>
+    </form>
+    <p class="muted" style="margin:10px 0 0;font-size:12px">
+      <?php if (kiosk_exit_pin_is_custom()): ?>
+        Set here and stored hashed — the value in <span class="mono">config.php</span>
+        is not used while an admin PIN is in place.
+      <?php else: ?>
+        No PIN set here yet, so the <span class="mono">KIOSK_EXIT_PIN</span> value from
+        <span class="mono">config.php</span> is in force. Set one to override it.
+      <?php endif; ?>
+      Only an admin can change it, and the old PIN stops working immediately.
+    </p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
     <h2>Accounts &amp; authority</h2>
     <span class="filters-summary"><?= count($users) ?> users</span>
   </div>
@@ -287,8 +350,8 @@ page_header('Users & roles', 'users.php');
 
 <div class="card">
   <div class="card-head">
-    <h2>Audit trail — accounts &amp; capabilities</h2>
-    <span class="filters-summary">Every account and role change, with who made it and what changed</span>
+    <h2>Audit trail — accounts, capabilities &amp; kiosk PIN</h2>
+    <span class="filters-summary">Every account, role and PIN change, with who made it and what changed</span>
   </div>
   <div class="card-body flush">
     <?php render_audit_trail($recentAudit, 'No account or capability changes yet.', true); ?>

@@ -156,4 +156,9 @@ A detailed walkthrough for each role — personnel, leader and admin — is in
   outside the document root on a public server.
 - All POSTs carry a CSRF token, passwords are stored with `password_hash()`,
   and every page behind `login.php` is guarded server-side.
+- Leaving the gate kiosk needs a PIN, so a desk screen left open cannot be
+  walked into the admin menu. An admin sets it on *Users & roles → Gate kiosk
+  exit PIN* (stored hashed); `KIOSK_EXIT_PIN` in `config.php` (or the
+  environment variable of the same name) is the fallback until then, default
+  `4321`.
 - On a public host, set a real MySQL password and use HTTPS.

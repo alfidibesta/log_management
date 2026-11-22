@@ -27,6 +27,29 @@ whichever page the person in front of them needs.
    `Belongings not returned` (or type your own, e.g. `Partially returned`,
    `Item missing / damaged`) and it is stored with the verification, shown in
    the Data Log under the status, and exported to Excel. Undo clears it.
+   A remark of that kind also stands the crossing up as an **open case** — see
+   [Exception register](#exception-register--belongings-not-returned).
+
+## Exception register — belongings not returned
+
+A remark is a note on one row; a loss only gets chased if it stands on a list.
+A verification remarked as *not returned* (or *partially returned*, *item
+missing / damaged*, or free text that says the same in English or Indonesian)
+sets `logs.exception_state = 'open'`:
+
+- the **Exception register** at the top of the Verify page lists every open
+  case — person, department, belongings, direction, gate, how long it has been
+  open, who verified it;
+- the **dashboard** carries an **Open exceptions** count linking to that list;
+- the **Data Log** filters on *Exceptions* (not returned / closed / any) and the
+  Excel export gained `Exception` and `Exception closed at` columns;
+- **Close exception** asks for a one-line reason and stores who closed it and
+  when; **Reopen** undoes a wrong close. Closing never edits the record or its
+  remark — only the case state moves, and both actions land in the audit trail
+  (`close_exception`, `reopen_exception`).
+
+Re-verifying a record that is already closed keeps it closed; **Undo** on the
+verification clears the case back to `none`.
 
 **Documents out**
 
@@ -47,7 +70,7 @@ whichever page the person in front of them needs.
 | **Visitors** | everyone | check **visitors / contractor workers** in and out: company, ID card, host, badge, on-site status |
 | Summary | everyone | **day / week / month / custom period** totals for belongings **and documents**, by category, by personnel type, by day, top personnel |
 | Help | everyone | this role guide inside the app: what your role can do, each role's steps, correcting mistakes, quick reference |
-| Data Log | admin | full belongings record list, filters (incl. person type), Excel export & import, delete |
+| Data Log | admin | full belongings record list, filters (incl. person type and exceptions), Excel export & import, delete |
 | Document Log | admin | full document take-out list, filters, Excel export |
 | Categories | admin | add / rename / hide the categories used for totals |
 | Users & roles | admin | create accounts, assign role (admin / leader / personnel), disable accounts — with the capability matrix and last-admin protection |
@@ -93,7 +116,8 @@ happens**, and verify it when the person comes back.
 1. Open **Record entry** (the input page).
 2. Fill the form: start typing the **name** (known people are suggested),
    department, **direction** (`IN` = entering the factory, `OUT` = leaving),
-   category, belongings / item, quantity, gate and an optional note.
+   category, belongings / item, quantity and an optional note. The gate is
+   always *Main Gate* — the form does not ask.
 3. The **time is set by the server** when you save — there is nothing to type
    and no way to back-date an entry. Check the direction before saving.
 4. Press **Save**. The new crossing appears immediately in the *Open records*
@@ -279,14 +303,27 @@ mechanism as the rest of the site, and `state.php` now watches visitors as well
 as logs, so a check-in or check-out appears on the screen without anyone
 pressing reload. The clock is the **database's** clock — the same one that
 stamps `time_in` and `logged_at` — so it always agrees with the records beside
-it, whatever timezone the browser is in.
+it, whatever timezone the browser is in. The automatic date & time box on the
+**Record entry**, **Documents out** and **Visitors** forms runs on that same
+clock and ticks every second (`assets/clock.js`), so the time under the form is
+the time the saved record gets.
 
 **Kiosk mode.** Opening the kiosk puts the site in kiosk mode: every page you
 touch from there renders with the same top bar and **no sidebar**, showing only
 that page. The bar reaches exactly the three gate jobs — *Visitors*,
 *Record entry* and *Documents out* (each only if the role holds that page) —
-plus **Exit kiosk**, which returns the normal sidebar. Forms saved in kiosk
-mode keep the mode, so the desk never falls back into the admin menu mid-shift.
+plus **Full screen**, which fills the wall display without hunting for F11, and
+**Exit kiosk**, which returns the normal sidebar. Forms saved in kiosk mode keep
+the mode, so the desk never falls back into the admin menu mid-shift.
+
+**Leaving needs the PIN.** A screen left alone at the gate must not be a way
+into the admin menu, so **Exit kiosk** asks for the desk PIN first
+(`public/kiosk_exit.php`); a wrong PIN only shows a toast and the board stays
+up. An admin sets the PIN on **Users & roles → Gate kiosk exit PIN**; it is kept
+server-side as a hash beside the role permissions, so no screen or database dump
+shows it, and each change is written to the audit trail. Until one is set,
+`KIOSK_EXIT_PIN` in `config.php` (or the environment variable of the same name)
+is the fallback, defaulting to `4321`.
 
 ## Authority (roles)
 
@@ -339,6 +376,28 @@ site cannot be locked out, and role changes or disabling are refused for the
 **last active admin**. Every page behind `login.php` is guarded, all POSTs
 carry a CSRF token, passwords use `password_hash()`.
 
+## Language — English / Indonesian
+
+The site is written in English, but the desk reads Indonesian. Every signed-in
+page has an **EN / ID** switch at the foot of the sidebar (and in the gate kiosk
+and kiosk-mode top bars): it stores the choice for the session and redraws the
+gate screens — Record entry, Verify queue, the exception register, the desk
+board — in Indonesian.
+
+The translation is a label map in `src/lang.php` (`ui_label_map()`), applied
+through `t('English label')` / `te('English label')`; a label with no entry
+falls back to English. Only labels are translated: names, item descriptions,
+remarks and the audit trail keep the language they were written in, so the
+record stays evidence. Preset remarks keep their canonical English value and
+only their label follows the desk language.
+
+A site can ship in Indonesian by default with one row in `settings`:
+
+```sql
+INSERT INTO settings (k, v) VALUES ('ui_lang', 'id')
+  ON DUPLICATE KEY UPDATE v = 'id';
+```
+
 ## Auto refresh (two open views stay in sync)
 
 `assets/live.js` polls `state.php` every 2.5 s. The version changes whenever a
@@ -356,10 +415,12 @@ signed-in session.
 
 - **Export** downloads the current filter as `.xlsx`
   (`Date, Time, Person, Department, Category, Item, Qty, Direction, Note, Gate,
-  Status, Verified by, Remark`). *Summary* exports the selected period.
+  Status, Verified by, Remark, Exception, Exception closed at`). *Summary*
+  exports the selected period.
 - **Import** accepts an `.xlsx` with those columns (`Date, Person, Category,
   Item, Direction` are required; `Remark` is optional and is stored on the
-  imported — already verified — row). Rows are validated line by line: bad dates,
+  imported — already verified — row; a remark that says the belongings did not
+  come back opens an exception case like a hand-entered one). Rows are validated line by line: bad dates,
   unknown categories or a direction other than IN/OUT are skipped and reported
   with their spreadsheet row number. Imported rows are marked verified.
 

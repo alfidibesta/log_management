@@ -112,6 +112,19 @@ function ensure_schema(PDO $pdo): void
         $pdo->exec("ALTER TABLE logs ADD COLUMN verify_remark VARCHAR(255) NOT NULL DEFAULT '' AFTER verified_at");
     }
 
+    // migration: exception register (src/exceptions.php). A remark that says the
+    // belongings did not come back stands the crossing up as an open case, and
+    // somebody has to close it — so the state lives on the row, next to the
+    // remark that opened it.
+    if (!$pdo->query("SHOW COLUMNS FROM logs LIKE 'exception_state'")->fetch()) {
+        $pdo->exec("ALTER TABLE logs
+            ADD COLUMN exception_state ENUM('none','open','closed') NOT NULL DEFAULT 'none' AFTER verify_remark,
+            ADD COLUMN exception_note VARCHAR(255) NOT NULL DEFAULT '' AFTER exception_state,
+            ADD COLUMN exception_closed_at DATETIME NULL AFTER exception_note,
+            ADD COLUMN exception_closed_by INT UNSIGNED NULL AFTER exception_closed_at,
+            ADD KEY idx_logs_exception (exception_state)");
+    }
+
     // One row = one document taken out of the site. The scan/photo is stored
     // compressed (≈100–200 KB JPEG) in the row itself, so shared hosting needs
     // no writable upload folder. Approval is done by a leader or an admin.

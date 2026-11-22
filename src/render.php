@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/exceptions.php';
+
 /**
  * Shared queries + HTML render functions.
  *
@@ -11,7 +13,7 @@ declare(strict_types=1);
 /* ---------------------------------------------------------------- queries */
 
 /** @return array{0:string,1:array} sql + args for the data log */
-function log_filter_sql(string $type, string $from, string $to, string $status, int $catId, string $q, string $personType = ''): array
+function log_filter_sql(string $type, string $from, string $to, string $status, int $catId, string $q, string $personType = '', string $exception = ''): array
 {
     $sql  = "SELECT l.*, c.name AS category_name,
                     u.name AS recorder, v.name AS verifier
@@ -35,6 +37,10 @@ function log_filter_sql(string $type, string $from, string $to, string $status, 
         $like = '%' . $q . '%';
         array_push($args, $like, $like, $like);
     }
+    // exception register: open cases, closed ones, or any record that was one
+    if ($exception === 'open')        { $sql .= " AND l.exception_state = 'open'"; }
+    elseif ($exception === 'closed')  { $sql .= " AND l.exception_state = 'closed'"; }
+    elseif ($exception === 'any')     { $sql .= " AND l.exception_state <> 'none'"; }
     return [$sql, $args];
 }
 
@@ -107,15 +113,15 @@ function fetch_open_records(string $person): array
 function render_log_table(array $logs, bool $admin): void
 {
     if (!$logs) {
-        echo '<div class="empty">No entries match these filters. Record one on the <a href="input.php">Input</a> page.</div>';
+        echo '<div class="empty">' . te('No entries match these filters. Record one on the Input page.') . '</div>';
         return;
     }
     ?>
     <table>
       <thead>
         <tr>
-          <th>Date / time</th><th>Personnel</th><th>Category</th><th>Belongings / items</th>
-          <th class="num">Qty</th><th>Dir</th><th>Gate</th><th>Status</th><th>Recorded by</th><?php if ($admin): ?><th></th><?php endif; ?>
+          <th><?= te('Date / time') ?></th><th><?= te('Personnel') ?></th><th><?= te('Category') ?></th><th><?= te('Belongings / items') ?></th>
+          <th class="num"><?= te('Qty') ?></th><th><?= te('Dir') ?></th><th><?= te('Gate') ?></th><th><?= te('Status') ?></th><th><?= te('Recorded by') ?></th><?php if ($admin): ?><th></th><?php endif; ?>
         </tr>
       </thead>
       <tbody>
@@ -137,12 +143,15 @@ function render_log_table(array $logs, bool $admin): void
           <td class="muted"><?= e($r['gate']) ?></td>
           <td>
             <?php if ($r['verified']): ?>
-              <span class="badge badge-in" title="by <?= e($r['verifier'] ?? '') ?> at <?= e($r['verified_at'] ?? '') ?>">✓ verified</span>
+              <span class="badge badge-in" title="by <?= e($r['verifier'] ?? '') ?> at <?= e($r['verified_at'] ?? '') ?>">✓ <?= te('verified') ?></span>
               <?php if (($r['verify_remark'] ?? '') !== ''): ?>
                 <br><span class="muted" style="font-size:12px"><?= e($r['verify_remark']) ?></span>
               <?php endif; ?>
             <?php else: ?>
-              <span class="badge badge-out">pending</span>
+              <span class="badge badge-out"><?= te('pending') ?></span>
+            <?php endif; ?>
+            <?php if (($r['exception_state'] ?? 'none') !== 'none'): ?>
+              <br><?= exception_state_badge((string) $r['exception_state']) ?>
             <?php endif; ?>
           </td>
           <td class="muted"><?= e($r['recorder'] ?? '—') ?></td>
@@ -168,7 +177,7 @@ function render_log_table(array $logs, bool $admin): void
 function render_verify_list(array $rows, bool $canVerify): void
 {
     if (!$rows) {
-        echo '<div class="empty">Nothing to verify — every record has been checked. 🎉</div>';
+        echo '<div class="empty">' . te('Nothing to verify — every record has been checked. 🎉') . '</div>';
         return;
     }
 
@@ -177,13 +186,14 @@ function render_verify_list(array $rows, bool $canVerify): void
         $grouped[$r['person']][] = $r;
     }
 
-    // quick remarks (e.g. belongings taken out but not returned yet)
-    echo '<datalist id="verify-remarks">'
-       . '<option value="Belongings not returned"></option>'
-       . '<option value="Partially returned"></option>'
-       . '<option value="Returned as recorded"></option>'
-       . '<option value="Item missing / damaged"></option>'
-       . '</datalist>';
+    // Quick remarks (e.g. belongings taken out but not returned yet). The value
+    // stays the canonical English phrase so the record reads the same to
+    // everyone; only the label shown at the desk follows the desk language.
+    echo '<datalist id="verify-remarks">';
+    foreach (array_merge(exception_remarks(), ['Returned as recorded']) as $preset) {
+        echo '<option value="' . e($preset) . '">' . e(t($preset)) . '</option>';
+    }
+    echo '</datalist>';
 
     foreach ($grouped as $person => $list) {
         $dept = $list[0]['dept'];
@@ -192,12 +202,12 @@ function render_verify_list(array $rows, bool $canVerify): void
            . (($list[0]['person_type'] ?? 'personnel') !== 'personnel'
                 ? person_type_badge($list[0]['person_type']) : '')
            . '<span class="muted">' . e($dept) . '</span>'
-           . '<span class="badge badge-out">' . count($list) . ' pending</span></div>';
+           . '<span class="badge badge-out">' . count($list) . ' ' . te('pending') . '</span></div>';
 
         echo '<table><thead><tr>'
-           . '<th>Recorded</th><th>Dir</th><th>Belongings / items</th><th>Category</th>'
-           . '<th class="num">Qty</th><th>Check against (opposite crossing)</th>'
-           . ($canVerify ? '<th class="col-remark">Remark / verify</th>' : '')
+           . '<th>' . te('Recorded') . '</th><th>' . te('Dir') . '</th><th>' . te('Belongings / items') . '</th><th>' . te('Category') . '</th>'
+           . '<th class="num">' . te('Qty') . '</th><th>' . te('Check against (opposite crossing)') . '</th>'
+           . ($canVerify ? '<th class="col-remark">' . te('Remark / verify') . '</th>' : '')
            . '</tr></thead><tbody>';
 
         foreach ($list as $r) {
@@ -212,7 +222,7 @@ function render_verify_list(array $rows, bool $canVerify): void
                 <?php if (($r['note'] ?? '') !== ''): ?>
                   <br><span class="muted" style="font-size:12px"><?= e($r['note']) ?></span>
                 <?php endif; ?>
-                <?php if (!$ref): ?><br><span class="muted" style="font-size:11.5px">no opposite record yet</span><?php endif; ?>
+                <?php if (!$ref): ?><br><span class="muted" style="font-size:11.5px"><?= te('no opposite record yet') ?></span><?php endif; ?>
               </td>
               <td class="muted"><?= e($r['category_name']) ?></td>
               <td class="num"><?= (int) $r['qty'] ?></td>
@@ -237,9 +247,9 @@ function render_verify_list(array $rows, bool $canVerify): void
                     <input type="hidden" name="action" value="verify">
                     <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
                     <input class="remark-input" type="text" name="remark" list="verify-remarks" maxlength="255"
-                           value="<?= e($r['verify_remark'] ?? '') ?>" placeholder="Remark (optional)"
-                           aria-label="Remark" title="Optional — e.g. Belongings not returned">
-                    <button class="btn btn-primary btn-xs" type="submit">✓ Verify</button>
+                           value="<?= e($r['verify_remark'] ?? '') ?>" placeholder="<?= te('Remark (optional)') ?>"
+                           aria-label="<?= te('Remark (optional)') ?>" title="Optional — e.g. Belongings not returned">
+                    <button class="btn btn-primary btn-xs" type="submit">✓ <?= te('Verify') ?></button>
                   </form>
                   <?php if (is_admin()): ?>
                     <form method="post" action="verify.php" onsubmit="return confirm('Delete this entry?')">
@@ -263,15 +273,15 @@ function render_verify_list(array $rows, bool $canVerify): void
 function render_open_records(array $rows, string $person): void
 {
     if (trim($person) === '') {
-        echo '<div class="empty">Type a personnel name to show their open (unverified) records.</div>';
+        echo '<div class="empty">' . te('Type a personnel name to show their open (unverified) records.') . '</div>';
         return;
     }
     if (!$rows) {
         echo '<div class="empty">No open records for “' . e($person) . '”.</div>';
         return;
     }
-    echo '<table><thead><tr><th>Recorded</th><th>Dir</th><th>Belongings / items</th>'
-       . '<th>Category</th><th class="num">Qty</th></tr></thead><tbody>';
+    echo '<table><thead><tr><th>' . te('Recorded') . '</th><th>' . te('Dir') . '</th><th>' . te('Belongings / items') . '</th>'
+       . '<th>' . te('Category') . '</th><th class="num">' . te('Qty') . '</th></tr></thead><tbody>';
     foreach ($rows as $r) {
         echo '<tr>'
            . '<td class="mono">' . e(date('d M · H:i', strtotime($r['logged_at']))) . '</td>'
@@ -283,4 +293,95 @@ function render_open_records(array $rows, string $person): void
            . '</tr>';
     }
     echo '</tbody></table>';
+}
+
+/**
+ * Exception register table — belongings that went out and did not come back.
+ *
+ * Open cases first. Closing asks for a short note (what happened), because
+ * "closed" without a reason is exactly the note the audit trail is for.
+ * Used by the Verify page; the Data Log shows the same rows through the
+ * `exceptions` filter.
+ */
+function render_exception_table(array $rows, bool $canClose = false): void
+{
+    if (!$rows) {
+        echo '<div class="empty">' . te('No open exceptions.') . '</div>';
+        return;
+    }
+    $ret = e((string) ($_SERVER['QUERY_STRING'] ?? ''));
+    ?>
+    <table>
+      <thead>
+        <tr>
+          <th><?= te('Opened') ?></th><th><?= te('Personnel') ?></th><th><?= te('Belongings') ?></th>
+          <th class="num"><?= te('Qty') ?></th><th><?= te('Dir') ?></th><th><?= te('Gate') ?></th>
+          <th><?= te('Note') ?></th><th><?= te('Status') ?></th>
+          <?php if ($canClose): ?><th></th><?php endif; ?>
+        </tr>
+      </thead>
+      <tbody>
+      <?php foreach ($rows as $r): ?>
+        <tr>
+          <td class="mono"><?= e(date('d M · H:i', strtotime((string) $r['logged_at']))) ?></td>
+          <td>
+            <strong><?= e($r['person']) ?></strong>
+            <?php if (($r['person_type'] ?? 'personnel') !== 'personnel'): ?>
+              <?= person_type_badge($r['person_type']) ?>
+            <?php endif; ?>
+            <span class="muted"><?= $r['dept'] !== '' ? '· ' . e($r['dept']) : '' ?></span>
+          </td>
+          <td><?= e($r['item']) ?></td>
+          <td class="num"><?= (int) $r['qty'] ?></td>
+          <td><span class="badge badge-<?= $r['type'] === 'in' ? 'in' : 'out' ?>"><?= $r['type'] === 'in' ? 'IN' : 'OUT' ?></span></td>
+          <td class="muted"><?= e($r['gate']) ?></td>
+          <td>
+            <?php if (($r['verify_remark'] ?? '') !== ''): ?>
+              <span class="muted" style="font-size:12px"><?= e($r['verify_remark']) ?></span>
+            <?php else: ?>
+              <span class="muted">—</span>
+            <?php endif; ?>
+            <?php if (($r['exception_note'] ?? '') !== ''): ?>
+              <br><span class="muted" style="font-size:11.5px"><?= e($r['exception_note']) ?></span>
+            <?php endif; ?>
+          </td>
+          <td>
+            <?= exception_state_badge((string) $r['exception_state']) ?>
+            <?php if (($r['exception_state'] ?? '') === 'closed'): ?>
+              <br><span class="muted" style="font-size:11.5px">
+                <?= e($r['closer'] ?? '—') ?> · <?= e(date('d M H:i', strtotime((string) $r['exception_closed_at']))) ?>
+              </span>
+            <?php else: ?>
+              <br><span class="muted" style="font-size:11.5px"><?= e($r['verifier'] ?? '—') ?>
+                · <?= e(date('d M H:i', strtotime((string) $r['logged_at']))) ?></span>
+            <?php endif; ?>
+          </td>
+          <?php if ($canClose): ?>
+            <td class="row-actions">
+              <?php if (($r['exception_state'] ?? '') === 'open'): ?>
+                <form method="post" action="verify.php">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="ret" value="<?= $ret ?>">
+                  <input type="hidden" name="action" value="close_exception">
+                  <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
+                  <input class="remark-input" type="text" name="note" maxlength="255"
+                         placeholder="<?= te('Why is it closed?') ?>" aria-label="<?= te('Why is it closed?') ?>">
+                  <button class="btn btn-primary btn-xs" type="submit"><?= te('Close exception') ?></button>
+                </form>
+              <?php else: ?>
+                <form method="post" action="verify.php">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="ret" value="<?= $ret ?>">
+                  <input type="hidden" name="action" value="reopen_exception">
+                  <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
+                  <button class="btn btn-ghost btn-xs" type="submit"><?= te('Reopen') ?></button>
+                </form>
+              <?php endif; ?>
+            </td>
+          <?php endif; ?>
+        </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table>
+    <?php
 }

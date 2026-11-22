@@ -19,10 +19,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $item       = trim((string) ($_POST['item'] ?? ''));
     $qty        = max(1, (int) ($_POST['qty'] ?? 1));
     $type       = ($_POST['type'] ?? '') === 'in' ? 'in' : 'out';
-    $gate       = trim((string) ($_POST['gate'] ?? '')) ?: 'Main Gate';
+    /* The gate is fixed: the form no longer asks, every entry is Main Gate. */
+    $gate       = 'Main Gate';
     $note       = trim((string) ($_POST['note'] ?? ''));
-    /* Stamped by the server — the form has no editable time field. */
-    $when       = date('Y-m-d H:i:s');
+    /* Stamped by the server, in the database's clock — the form has no
+       editable time field, and the time shown above the save button is that
+       same clock, ticking live. */
+    $when       = desk_now();
 
     $err = [];
     if ($person === '')  { $err[] = 'Personnel name is required.'; }
@@ -58,7 +61,7 @@ $person     = trim((string) ($_GET['person'] ?? ''));
 $preType    = in_array($_GET['type'] ?? '', ['personnel', 'visitor', 'contractor'], true) ? (string) $_GET['type'] : 'personnel';
 $open       = fetch_open_records($person);
 
-page_header('Record entry', 'input.php');
+page_header(t('Record entry'), 'input.php');
 ?>
 <div class="card">
   <div class="card-body"><?php flow_steps('record'); ?></div>
@@ -66,31 +69,31 @@ page_header('Record entry', 'input.php');
 <?php if (can('record')): ?>
 <div class="card">
   <div class="card-head">
-    <h2>Record personnel passing the main gate</h2>
-    <span class="filters-summary">IN = entering the factory · OUT = leaving</span>
+    <h2><?= te('Record personnel passing the main gate') ?></h2>
+    <span class="filters-summary"><?= te('IN = entering the factory · OUT = leaving') ?></span>
   </div>
   <div class="card-body">
     <form method="post" class="grid" style="gap:14px">
       <?= csrf_field() ?>
 
       <div class="grid grid-form">
-        <label class="field grow">Personnel name *
-          <input type="text" name="person" list="people" required autofocus placeholder="Full name"
+        <label class="field grow"><?= te('Personnel name') ?> *
+          <input type="text" name="person" list="people" required autofocus placeholder="<?= te('Full name') ?>"
                  value="<?= e($person) ?>">
           <datalist id="people">
             <?php foreach ($people as $p): ?><option><?= e($p) ?></option><?php endforeach; ?>
           </datalist>
         </label>
 
-        <label class="field">Person type
+        <label class="field"><?= te('Person type') ?>
           <select name="person_type">
             <?php foreach (person_types() as $key => $label): ?>
-              <option value="<?= e($key) ?>" <?= $preType === $key ? 'selected' : '' ?>><?= e($label) ?></option>
+              <option value="<?= e($key) ?>" <?= $preType === $key ? 'selected' : '' ?>><?= e(t($label)) ?></option>
             <?php endforeach; ?>
           </select>
         </label>
 
-        <label class="field">Department / company
+        <label class="field"><?= te('Department / company') ?>
           <input type="text" name="dept" list="depts" placeholder="e.g. Maintenance">
           <datalist id="depts">
             <option>Production</option><option>Maintenance</option><option>Warehouse</option>
@@ -99,7 +102,7 @@ page_header('Record entry', 'input.php');
           </datalist>
         </label>
 
-        <label class="field">Category *
+        <label class="field"><?= te('Category') ?> *
           <select name="category_id" required>
             <option value="">— select —</option>
             <?php foreach ($categories as $c): ?>
@@ -108,7 +111,7 @@ page_header('Record entry', 'input.php');
           </select>
         </label>
 
-        <label class="field">Direction *
+        <label class="field"><?= te('Direction') ?> *
           <span class="seg">
             <input type="radio" id="t-in" name="type" value="in" checked>
             <label for="t-in">IN</label>
@@ -119,32 +122,28 @@ page_header('Record entry', 'input.php');
       </div>
 
       <div class="grid grid-form">
-        <label class="field grow">Belongings / tools / documents *
+        <label class="field grow"><?= te('Belongings / tools / documents') ?> *
           <input type="text" name="item" list="items" required placeholder="e.g. Cordless drill + battery">
           <datalist id="items">
             <?php foreach ($items as $i): ?><option><?= e($i) ?></option><?php endforeach; ?>
           </datalist>
         </label>
 
-        <label class="field" style="max-width:110px">Qty
+        <label class="field" style="max-width:110px"><?= te('Qty') ?>
           <input type="number" name="qty" value="1" min="1" max="9999">
         </label>
 
-        <label class="field">Gate
-          <input type="text" name="gate" value="Main Gate">
-        </label>
-
-        <label class="field">Date &amp; time
-          <div class="field-auto"><?= date('d M Y, H:i') ?> <span class="muted">· automatic</span></div>
+        <label class="field"><?= te('Date & time') ?>
+          <?php auto_clock(); ?>
         </label>
       </div>
 
       <div class="grid grid-form">
-        <label class="field grow">Note <span class="muted">(optional)</span>
+        <label class="field grow"><?= te('Note') ?> <span class="muted">(<?= te('optional') ?>)</span>
           <input type="text" name="note" placeholder="PO number, purpose, destination…">
         </label>
         <div class="field" style="justify-content:flex-end">
-          <button class="btn btn-primary" type="submit">Save entry</button>
+          <button class="btn btn-primary" type="submit"><?= te('Save entry') ?></button>
         </div>
       </div>
 
@@ -167,8 +166,8 @@ page_header('Record entry', 'input.php');
 
 <div class="card">
   <div class="card-head">
-    <h2>Open records for this person</h2>
-    <span class="filters-summary">live — updates as records are verified elsewhere</span>
+    <h2><?= te('Open records for this person') ?></h2>
+    <span class="filters-summary"><?= te('live — updates as records are verified elsewhere') ?></span>
   </div>
   <div class="card-body flush" data-live="fragment.php?part=open" data-live-person>
     <?php render_open_records($open, $person); ?>

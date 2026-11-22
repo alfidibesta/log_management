@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $badge   = mb_substr(trim((string) ($_POST['badge_no'] ?? '')), 0, 40);
         $note    = mb_substr(trim((string) ($_POST['note'] ?? '')), 0, 255);
         /* Stamped by the server — the form has no editable time field. */
-        $when    = date('Y-m-d H:i:s');
+        $when    = desk_now();
 
         $err = [];
         if ($name === '')    { $err[] = 'Visitor name is required.'; }
@@ -185,7 +185,7 @@ page_header('Visitors & Contractors', 'visitors.php');
           <input type="text" name="host" maxlength="120" placeholder="e.g. Andi Wijaya (Maintenance)">
         </label>
         <label class="field">Time in
-          <div class="field-auto"><?= date('d M Y, H:i') ?> <span class="muted">· automatic</span></div>
+          <?php auto_clock(); ?>
         </label>
       </div>
 

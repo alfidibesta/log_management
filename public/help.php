@@ -79,8 +79,9 @@ page_header('Help', 'help.php');
       <li><strong>Gate kiosk</strong> is the desk screen: today's visitors, who
         is on site and what still needs verifying, refreshing itself. Its top
         bar opens only <em>Visitors</em>, <em>Record entry</em> and
-        <em>Documents out</em>, each without the sidebar; <strong>Exit
-        kiosk</strong> brings the normal menu back.</li>
+        <em>Documents out</em>, each without the sidebar; <strong>Full
+        screen</strong> fills the wall display, and <strong>Exit kiosk</strong> —
+        with the desk PIN — brings the normal menu back.</li>
       <li><strong>Visitors</strong> — check a visitor or contractor worker in
         <em>before</em> they walk through, and out when they leave. The row's
         <strong>Belongings</strong> and <strong>Documents</strong> shortcuts
@@ -90,6 +91,11 @@ page_header('Help', 'help.php');
         period as Excel.</li>
       <li>The working pages refresh every few seconds, so an entry recorded in
         one window appears in another without a manual reload.</li>
+      <li><strong>Bahasa Indonesia</strong> — the <span class="kbd">EN</span> /
+        <span class="kbd">ID</span> switch at the foot of the menu (and in the
+        gate kiosk bar) redraws the gate screens in Indonesian for the rest of
+        the session. Records, remarks and the audit trail keep the language they
+        were written in, so the evidence never changes with the screen.</li>
     </ol>
   </div>
 </div>
@@ -108,8 +114,8 @@ page_header('Help', 'help.php');
       <li>Open <a href="input.php">Record entry</a>.</li>
       <li>Start typing the <strong>name</strong> (known people are suggested),
         then choose department, <strong>direction</strong> (IN = entering the
-        factory, OUT = leaving), category, belongings / item, quantity, gate and
-        an optional note.</li>
+        factory, OUT = leaving), category, belongings / item, quantity and an
+        optional note. The gate is always <em>Main Gate</em>.</li>
       <li>The <strong>time is set by the server</strong> when you save — nothing
         to type and no back-dating. Check the direction before saving.</li>
       <li>Press <strong>Save</strong>. The crossing appears in the <em>Open
@@ -133,6 +139,20 @@ page_header('Help', 'help.php');
         Excel export.</li>
       <li>Pressed the wrong row? <strong>Undo</strong> puts it back in the queue
         and clears the verification and remark.</li>
+    </ol>
+
+    <h3>Belongings that did not come back</h3>
+    <p>A remark such as <em>Belongings not returned</em> also opens a case in the
+      <a href="verify.php#exceptions">Exception register</a> at the top of the
+      Verify queue, and the dashboard counts it. That list is the standing
+      answer to “what is still missing?” — a remark on a row is only a note.</p>
+    <ol>
+      <li>When the item is settled (returned, written off, found), press
+        <strong>Close exception</strong> and type why in one short line, e.g.
+        <em>Returned 22 Nov</em>. Your name and the time are stored.</li>
+      <li>Closed by mistake? Press <strong>Reopen</strong> on the same list.</li>
+      <li>The record itself — item, remark, verification — is never altered by
+        closing a case; only the case state moves.</li>
     </ol>
 
     <h3>Also yours by default</h3>
@@ -200,13 +220,19 @@ page_header('Help', 'help.php');
         standard matrix.</li>
       <li>The <strong>last active admin</strong> cannot be demoted or disabled.
         Create a second admin before changing your own account.</li>
+      <li><strong>Gate kiosk exit PIN</strong> — the PIN the desk screen asks for
+        before it gives the admin menu back. Type it twice, save, and it applies
+        to the next exit; it is stored hashed and each change is in the audit
+        trail. Until one is set here, the fallback in <span class="mono">config.php</span>
+        is used.</li>
     </ol>
 
     <h3>Data and housekeeping</h3>
     <ul>
       <li><a href="log.php">Data Log</a> — the full belongings history with
-        filters. Delete a wrong or duplicate record here, export the current
-        filter to Excel, or import a filled template (imported rows are marked
+        filters, including <strong>Exceptions</strong> (not returned / closed /
+        any). Delete a wrong or duplicate record here, export the current filter
+        to Excel, or import a filled template (imported rows are marked
         verified; bad rows are reported with their spreadsheet line number).</li>
       <li><a href="doclog.php">Document Log</a> — every document take-out with
         its approval status, filters and Excel export.</li>
@@ -236,6 +262,8 @@ page_header('Help', 'help.php');
           <td><strong>Undo</strong> on <a href="verify.php">Verify queue</a>, then verify it correctly.</td></tr>
         <tr><td>Wrong remark on a verification</td>
           <td><strong>Undo</strong>, then verify again with the right remark.</td></tr>
+        <tr><td>Exception closed while the item is still missing</td>
+          <td><strong>Reopen</strong> it in the <a href="verify.php#exceptions">Exception register</a>; who closed it and when stay in the audit trail.</td></tr>
         <tr><td>Document approved by mistake</td>
           <td><strong>Undo</strong> on <a href="documents.php">Documents out</a> and let the right leader decide.</td></tr>
         <tr><td>Visitor still shown on site</td>

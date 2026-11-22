@@ -31,8 +31,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $purpose = mb_substr(trim((string) ($_POST['purpose'] ?? '')), 0, 180);
         $copies  = max(1, min(9999, (int) ($_POST['copies'] ?? 1)));
         $note    = mb_substr(trim((string) ($_POST['note'] ?? '')), 0, 255);
-        /* Stamped by the server — the form has no editable time field. */
-        $when    = date('Y-m-d H:i:s');
+        /* Stamped by the server, in the database's clock — the form has no
+           editable time field, and the time shown beside it is that clock. */
+        $when    = desk_now();
 
         $err   = [];
         $photo = null;
@@ -270,15 +271,15 @@ page_header('Documents out', 'documents.php');
         </label>
       </div>
 
-      <div class="grid grid-form">
+      <div class="form-row">
         <label class="field grow">Destination / purpose
           <input type="text" name="purpose" maxlength="180" placeholder="e.g. Taken to customer site">
         </label>
-        <label class="field" style="max-width:120px">Copies / pages
+        <label class="field" style="flex:0 0 120px">Copies / pages
           <input type="number" name="copies" value="1" min="1" max="9999">
         </label>
-        <label class="field">Taken at
-          <div class="field-auto"><?= date('d M Y, H:i') ?> <span class="muted">· automatic</span></div>
+        <label class="field" style="flex:0 0 180px">Taken at
+          <?php auto_clock(); ?>
         </label>
         <label class="field grow">Note <span class="muted">(optional)</span>
           <input type="text" name="note" maxlength="255" placeholder="Anything the leader should know">
@@ -312,14 +313,12 @@ page_header('Documents out', 'documents.php');
         </div>
       </div>
 
-      <div class="grid grid-form">
-        <p class="hint grow" style="margin:0">
+      <div class="doc-submit">
+        <p class="hint">
           Every request stays <strong>pending</strong> until a leader (or an admin) approves it.
           The scan is stored small — about 100–200 KB — not as a full-size phone photo.
         </p>
-        <div class="field" style="justify-content:flex-end">
-          <button class="btn btn-primary" type="submit">Save document</button>
-        </div>
+        <button class="btn btn-primary" type="submit">Save document</button>
       </div>
     </form>
   </div>
@@ -327,7 +326,7 @@ page_header('Documents out', 'documents.php');
 <?php else: ?>
 <div class="card">
   <div class="card-body">
-    <p class="muted" style="margin:0">Your role can follow the document queue but not record a take-out. '
+    <p class="muted" style="margin:0">Your role can follow the document queue but not record a take-out.
       Ask an admin for <strong>Record a document going out</strong> on Users &amp; roles.</p>
   </div>
 </div>
